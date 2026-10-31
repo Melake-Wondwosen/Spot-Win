@@ -82,7 +82,7 @@ export async function login(username, password, location) {
   const u = d.user
   if (!u || !u.token) throw new Error('Sign-in worked but no session came back. Is SpotWin.gs deployed?')
   setSettings(d.settings)
-  const role = ['manager', 'asm', 'admin'].includes(u.role) ? u.role : 'sales'
+  const role = ['manager', 'rtm', 'asm', 'admin'].includes(u.role) ? u.role : 'sales'
   return { id: String(u.id), name: String(u.name), username: String(u.username), staffId: String(u.staffId || ''), region: String(u.region || ''), agent: String(u.agent || ''), role, token: u.token }
 }
 

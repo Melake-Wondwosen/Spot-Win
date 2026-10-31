@@ -119,7 +119,7 @@ export default function Admin() {
         {!data && !error && <Skeleton />}
         {data && (
           <div key={tab} className="anim-rise">
-            {tab === 'analysis' && <Analysis divisions={data.divisions} />}
+            {tab === 'analysis' && <Analysis divisions={data.divisions} role="admin" />}
             {tab === 'visits' && <VisitsTab {...props} />}
             {tab === 'users' && <UsersTab {...props} />}
             {tab === 'outlets' && <OutletsTab {...props} />}

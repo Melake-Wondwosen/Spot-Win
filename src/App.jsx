@@ -66,7 +66,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<RequireRole roles={['sales']}><SalesShell><Home /></SalesShell></RequireRole>} />
           <Route path="/visit" element={<RequireRole roles={['sales']}><SalesShell><Visit /></SalesShell></RequireRole>} />
-          <Route path="/manager" element={<RequireRole roles={['manager', 'asm', 'admin']}><Manager /></RequireRole>} />
+          <Route path="/manager" element={<RequireRole roles={['manager', 'rtm', 'asm', 'admin']}><Manager /></RequireRole>} />
           <Route path="/admin" element={<RequireRole roles={['admin']}><Admin /></RequireRole>} />
           <Route path="*" element={<Navigate to={getUser()?.token ? homeFor(getUser()) : '/login'} replace />} />
         </Routes>

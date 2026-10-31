@@ -35,10 +35,13 @@ Everyone signs in on the same page. The Users tab decides where they land.
 | --- | --- | --- |
 | blank or any other word | home screen | own visits and upload queue |
 | "ASM" or "Area Sales Manager" | /manager | sales users with the same agent and visits to that agent's outlets; can export |
+| "RTM" or "Trade Marketing" | /manager | sales users and visits of their region, like a manager |
 | contains "manager" | /manager | sales users and visits of their region; all divisions if region is blank; can export |
 | contains "admin" | /admin | everything, the manager view, users, outlets, settings |
 
 Users tab columns: id, username, password, name, staffId, role, region, agent, active. A sales user's agent decides which outlets download to their phone (their region is used when agent is blank) and which ASM sees them. An ASM can cover several agents: separate the names with commas. Put `no` in active to block someone; they lose access within a minute.
+
+ASMs, RTMs and managers get two views: Live (who is online, map, latest visits) and Spending (totals, spending by agent, territory, sales person or activity, visits per day, Excel export), both limited to their agent or division.
 
 ## How a visit is saved
 

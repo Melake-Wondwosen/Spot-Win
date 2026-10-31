@@ -2,22 +2,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { managerData } from '../api'
 import Period from '../components/Period'
 import { Notice, Segmented, Spinner, birr, whole } from '../components/ui'
-import { usePeriod, Tile } from '../manager/Manager'
+import { usePeriod, Tile } from '../manager/shared'
+import ExportButton from '../components/ExportButton'
 import { groupBy, isVoid, text, totals } from '../manager/calc'
 import { DAY_MS, date, dayStart, weekday } from '../time'
 
-const GROUPS = [
+const ALL_GROUPS = [
   { value: 'division', label: 'Division' },
   { value: 'agent', label: 'Agent' },
   { value: 'territory', label: 'Territory' },
-  { value: 'userName', label: 'User' },
+  { value: 'userName', label: 'Sales person' },
   { value: 'activity', label: 'Activity' },
 ]
 
-export default function Analysis({ divisions = [] }) {
+// Spending analysis. Admins see everything; managers and RTMs their division;
+// ASMs their agent (the server limits the rows). An ASM starts on Sales person.
+export default function Analysis({ divisions = [], role = 'admin', exportMeta }) {
   const { period, range, props } = usePeriod('7d')
   const [division, setDivision] = useState('')
-  const [group, setGroup] = useState('division')
+  const GROUPS = role === 'asm' ? ALL_GROUPS.filter((g) => g.value !== 'division') : ALL_GROUPS
+  const [group, setGroup] = useState(role === 'asm' ? 'userName' : role === 'admin' ? 'division' : 'agent')
   const [visits, setVisits] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -69,17 +73,20 @@ export default function Analysis({ divisions = [] }) {
     <div className="space-y-5">
       <div className="rounded-2xl bg-ink text-paper p-3 flex flex-wrap items-center gap-2">
         <Period {...props} />
-        <select value={division} onChange={(e) => setDivision(e.target.value)} className="h-[38px] rounded-full bg-paper/10 border border-paper/15 text-paper text-sm px-3 outline-none focus:border-gold [color-scheme:dark] max-w-full">
+        {allDivs.length > 1 && <select value={division} onChange={(e) => setDivision(e.target.value)} className="h-[38px] rounded-full bg-paper/10 border border-paper/15 text-paper text-sm px-3 outline-none focus:border-gold [color-scheme:dark] max-w-full">
           <option value="">All divisions</option>
           {allDivs.map((d) => (
             <option key={d} value={d}>
               {d}
             </option>
           ))}
-        </select>
-        <button type="button" onClick={load} disabled={busy} className="btn-hover ml-auto h-[38px] rounded-full px-4 text-sm font-semibold gold-gradient text-ink inline-flex items-center gap-2">
-          {busy ? <Spinner /> : '↻'} Refresh
-        </button>
+        </select>}
+        <div className="ml-auto flex items-center gap-2">
+          <button type="button" onClick={load} disabled={busy} className="btn-hover h-10 rounded-full px-4 text-sm font-semibold border border-paper/25 text-paper inline-flex items-center gap-2 hover:border-gold">
+            {busy ? <Spinner /> : '↻'} Refresh
+          </button>
+          <ExportButton filters={() => ({ from: range.from, to: range.to, division, status: 'Saved' })} meta={() => ({ division: division || exportMeta?.()?.division || '' })} />
+        </div>
       </div>
 
       {error && <Notice>{error}</Notice>}
@@ -90,7 +97,7 @@ export default function Analysis({ divisions = [] }) {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 stagger">
             <Tile i={0} label="Visits" value={whole(t.visits)} />
             <Tile i={1} label="Outlets visited" value={whole(t.outlets)} />
-            <Tile i={2} label="Active users" value={whole(t.users)} />
+            <Tile i={2} label="Sales people active" value={whole(t.users)} />
             <Tile i={3} label="Total Birr" value={birr(Math.round(t.birr))} gold />
             <Tile i={4} label="Total crates" value={whole(t.crates)} gold />
             <Tile i={5} label="Avg Birr per visit" value={t.avgBirr == null ? '–' : birr(Math.round(t.avgBirr))} sub="Birr visits only" />
@@ -98,7 +105,7 @@ export default function Analysis({ divisions = [] }) {
 
           <section className="rounded-2xl bg-white border border-ink/10 p-4 anim-rise">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-serif text-xl">Breakdown</h2>
+              <h2 className="font-serif text-xl">Spending by {GROUPS.find((g) => g.value === group).label.toLowerCase()}</h2>
               <Segmented className="w-full sm:w-auto sm:min-w-[440px]" value={group} onChange={setGroup} options={GROUPS} />
             </div>
             <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_70px_70px_110px_80px] gap-3 mt-4 text-[11px] uppercase tracking-wider text-gold-dark">

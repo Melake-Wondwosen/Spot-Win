@@ -18,7 +18,7 @@ export function onLock(fn) {
 
 // The lock is for sales users in the field. Managers and admins work on PCs, where
 // developer tools or browser extensions can trigger it, so they're left alone.
-const exempt = () => ['admin', 'manager', 'asm'].includes(getUser()?.role)
+const exempt = () => ['admin', 'manager', 'rtm', 'asm'].includes(getUser()?.role)
 
 function trip(detail) {
   if (locked || exempt()) return

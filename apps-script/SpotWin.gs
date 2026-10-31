@@ -265,25 +265,27 @@ function findUser_(id) {
   return null;
 }
 
-// Role from the Users tab. "asm" or "area sales" = ASM; checked before
-// "manager", so "Area Sales Manager" is an ASM.
+// Role from the Users tab. "asm" or "area sales" = ASM, "rtm" or "trade
+// marketing" = RTM. Both are checked before "manager", so "Area Sales
+// Manager" is an ASM and "Regional Trade Marketing Manager" is an RTM.
 function roleOf_(text) {
   var r = String(text || '').toLowerCase();
   if (r.indexOf('admin') > -1) return 'admin';
   if (/\basm\b|area\s*sales/.test(r)) return 'asm';
+  if (/\brtm\b|trade\s*marketing/.test(r)) return 'rtm';
   if (r.indexOf('manager') > -1) return 'manager';
   return 'sales';
 }
 
-var VIEWERS = ['manager', 'asm', 'admin'];
+var VIEWERS = ['manager', 'rtm', 'asm', 'admin'];
 
 function publicUser_(u) {
   return { id: u.id, name: u.name, username: u.username, staffId: u.staffId || '', role: u.role, region: u.region || '', agent: u.agent || '', active: u.active };
 }
 
 /* ================= divisions and agents ================= */
-// A manager's region in Users is their division: they see sales users of that
-// region and visits to outlets in that division. An ASM's agent in Users
+// A manager's or RTM's region in Users is their division: they see sales users
+// of that region and visits to outlets in that division. An ASM's agent in Users
 // (one, or several separated by commas) limits them to sales users of that
 // agent and visits to that agent's outlets. Admins see everything.
 
@@ -298,9 +300,10 @@ function scopeFor_(me) {
     readUsers_().forEach(function (u) { if (u.role === 'sales' && agentsOf_(u.agent).some(function (a) { return agents.indexOf(a) > -1; })) ids[u.id] = true; });
     return { kind: 'agent', agents: agents, label: 'ASM · ' + (me.agent || 'no agent set'), ids: ids };
   }
-  if (me.role !== 'manager' || !String(me.region || '').trim()) return null;
+  // Managers and RTMs: their division (region). Blank region = all divisions.
+  if ((me.role !== 'manager' && me.role !== 'rtm') || !String(me.region || '').trim()) return null;
   readUsers_().forEach(function (u) { if (u.role === 'sales' && sameDiv_(u.region, me.region)) ids[u.id] = true; });
-  return { kind: 'division', division: me.region, label: 'Manager · ' + me.region, ids: ids };
+  return { kind: 'division', division: me.region, label: (me.role === 'rtm' ? 'RTM · ' : 'Manager · ') + me.region, ids: ids };
 }
 
 function visitInScope_(scope, v) {
@@ -530,7 +533,7 @@ function resolveFlag_(b) {
 function sendNotice_(b) {
   var me = requireUser_(b.token, ['admin']);
   var target = String(b.target || 'all');
-  if (['all', 'sales', 'asm', 'manager', 'admin'].indexOf(target) < 0 && target.indexOf('user:') !== 0) fail_('Pick who should get it.');
+  if (['all', 'sales', 'asm', 'rtm', 'manager', 'admin'].indexOf(target) < 0 && target.indexOf('user:') !== 0) fail_('Pick who should get it.');
   if (!String(b.title || '').trim()) fail_('Add a title.');
   withLock_(function () { addNotice_(me, target, 'notice', String(b.title).trim(), String(b.body || '').trim()); });
   return {};
@@ -1158,7 +1161,7 @@ function saveUser_(b) {
   var username = String(u.username || '').trim();
   var name = String(u.name || '').trim();
   var staffId = String(u.staffId || '').trim().toUpperCase();
-  var role = ['sales', 'asm', 'manager', 'admin'].indexOf(u.role) > -1 ? u.role : 'sales';
+  var role = ['sales', 'asm', 'rtm', 'manager', 'admin'].indexOf(u.role) > -1 ? u.role : 'sales';
   var agent = String(u.agent || '').trim();
   var active = u.active !== false;
   var password = String(u.password || '').trim();

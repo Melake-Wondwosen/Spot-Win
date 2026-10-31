@@ -24,6 +24,7 @@ function build() {
   const users = NAMES.map((name, i) => ({ id: `S-${String(i + 1).padStart(2, '0')}`, name, username: name.split(' ')[0].toLowerCase(), staffId: `HB${1040 + i}`, region: GEO[i % 4].division, role: 'sales', active: true }))
   users.forEach((u, i) => (u.agent = GEO[i % 4].agent))
   users.push({ id: 'ASM-1', name: 'Demo ASM', username: 'asm', staffId: 'HB0501', region: 'North Addis', agent: 'Demo Agent A plc', role: 'asm', active: true })
+  users.push({ id: 'RTM-1', name: 'Demo RTM', username: 'rtm', staffId: 'HB0601', region: 'North Addis', agent: '', role: 'rtm', active: true })
   users.push({ id: 'M-01', name: 'Demo Manager', username: 'manager', staffId: 'HB0901', region: 'North Addis', role: 'manager', active: true })
   users.push({ id: 'A-01', name: 'Demo Admin', username: 'admin', staffId: 'HB0001', region: '', role: 'admin', active: true })
   const home = NAMES.map(() => ({ lat: CENTER.lat + (rnd() - 0.5) * 0.09, lng: CENTER.lng + (rnd() - 0.5) * 0.11 }))
@@ -123,7 +124,7 @@ function demoPhoto(id, w, h) {
   return data
 }
 
-const roleOf = (u) => (/admin/i.test(u) ? 'admin' : /\basm\b/i.test(u) ? 'asm' : /manager|melake/i.test(u) ? 'manager' : 'sales')
+const roleOf = (u) => (/admin/i.test(u) ? 'admin' : /\basm\b/i.test(u) ? 'asm' : /\brtm\b/i.test(u) ? 'rtm' : /manager|melake/i.test(u) ? 'manager' : 'sales')
 let me = null
 const between = (iso, from, to) => (!from || iso >= from) && (!to || iso < to)
 
@@ -139,7 +140,7 @@ function exportFilter(f) {
   const d = D()
   return d.visits
     .filter((v) => between(v.date, f.from, f.to))
-    .filter((v) => (me?.role === 'asm' ? v.agent === me.agent : me?.role === 'manager' ? v.division === 'North Addis' : !f.division || v.division === f.division))
+    .filter((v) => (me?.role === 'asm' ? v.agent === me.agent : me?.role === 'manager' || me?.role === 'rtm' ? v.division === 'North Addis' : !f.division || v.division === f.division))
     .filter((v) => !f.userId || v.userId === f.userId)
     .filter((v) => !f.activity || v.activity === f.activity)
     .filter((v) => !f.unit || v.investmentUnit === f.unit)
@@ -207,14 +208,14 @@ export async function demoCall(action, p) {
     case 'myVisits':
       return { visits: [] }
     case 'managerData': {
-      const scoped = me?.role === 'manager'
+      const scoped = me?.role === 'manager' || me?.role === 'rtm'
       const asm = me?.role === 'asm'
       const users = d.users.filter((u) => u.role === 'sales' && (asm ? u.agent === me.agent : !scoped || u.region === 'North Addis'))
       const ids = new Set(users.map((u) => u.id))
       const visits = d.visits.filter((v) => between(v.date, p.from, p.to) && (asm ? v.agent === me.agent : !scoped || v.division === 'North Addis'))
       if (p.lite) return { serverTime: new Date().toISOString(), visits }
       return {
-        serverTime: new Date().toISOString(), division: scoped ? 'North Addis' : '', scopeLabel: asm ? 'ASM · ' + me.agent : scoped ? 'Manager · North Addis' : '', users, visits,
+        serverTime: new Date().toISOString(), division: scoped ? 'North Addis' : '', scopeLabel: asm ? 'ASM · ' + me.agent : scoped ? (me.role === 'rtm' ? 'RTM' : 'Manager') + ' · North Addis' : '', users, visits,
         presence: d.presence.filter((x) => ids.has(x.userId)), track: d.track.filter((x) => ids.has(x.userId) && x.date >= (p.trackFrom || '')),
         flags: d.flags.filter((x) => ids.has(x.userId)), notes: notesFor(me?.role || 'manager'),
       }

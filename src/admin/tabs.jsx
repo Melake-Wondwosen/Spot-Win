@@ -37,7 +37,7 @@ function Chip({ tone = 'plain', children }) {
 
 export function Summary({ items }) {
   return (
-    <div className={`grid gap-2.5 stagger mb-4 ${items.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+    <div className={`grid gap-2.5 stagger mb-4 ${items.length === 3 ? 'grid-cols-3' : items.length === 5 ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
       {items.map((it, i) => (
         <div key={it.label} style={{ '--i': i }} className="tilt spot rounded-2xl bg-white border border-ink/10 px-3 sm:px-4 py-3 min-w-0" data-tilt="6">
           <p className="font-serif text-2xl">{it.value}</p>
@@ -74,7 +74,7 @@ function useSave(reload, say, onClose) {
 
 /* ---------- users ---------- */
 
-const ROLE_LABEL = { sales: 'Sales', asm: 'ASM', manager: 'Manager', admin: 'Admin' }
+const ROLE_LABEL = { sales: 'Sales', asm: 'ASM', rtm: 'RTM', manager: 'Manager', admin: 'Admin' }
 
 export function UsersTab({ data, reload, say }) {
   const [q, setQ] = useState('')
@@ -90,6 +90,7 @@ export function UsersTab({ data, reload, say }) {
         items={[
           { label: 'Sales users', value: users.filter((u) => u.role === 'sales' && u.active).length },
           { label: 'ASMs', value: users.filter((u) => u.role === 'asm' && u.active).length },
+          { label: 'RTMs', value: users.filter((u) => u.role === 'rtm' && u.active).length },
           { label: 'Managers', value: users.filter((u) => u.role === 'manager' && u.active).length },
           { label: 'Admins', value: users.filter((u) => u.role === 'admin' && u.active).length },
         ]}
@@ -118,7 +119,7 @@ export function UsersTab({ data, reload, say }) {
                 </span>
               </span>
               <span className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
-                <Chip tone={u.role === 'admin' ? 'dark' : u.role === 'manager' || u.role === 'asm' ? 'gold' : 'plain'}>{ROLE_LABEL[u.role]}</Chip>
+                <Chip tone={u.role === 'admin' ? 'dark' : u.role === 'manager' || u.role === 'asm' || u.role === 'rtm' ? 'gold' : 'plain'}>{ROLE_LABEL[u.role]}</Chip>
                 {!u.active && <Chip tone="red">Blocked</Chip>}
               </span>
             </button>
@@ -175,14 +176,15 @@ function UserSheet({ user, divisions, agents, reload, say, onClose }) {
           options={[
             { value: 'sales', label: 'Sales' },
             { value: 'asm', label: 'ASM' },
+            { value: 'rtm', label: 'RTM' },
             { value: 'manager', label: 'Manager' },
             { value: 'admin', label: 'Admin' },
           ]}
         />
       </Field>
-      <Field label="Division" hint={f.role === 'manager' ? 'The manager sees only this division. Leave blank to see all.' : f.role === 'sales' ? 'Sets which manager sees them, and which outlets download when no agent is set.' : undefined}>
+      <Field label="Division" hint={f.role === 'manager' || f.role === 'rtm' ? `The ${f.role === 'rtm' ? 'RTM' : 'manager'} sees only this division. Leave blank to see all.` : f.role === 'sales' ? 'Sets which manager sees them, and which outlets download when no agent is set.' : undefined}>
         <select className={inputClass} value={f.region} onChange={put('region')}>
-          <option value="">{f.role === 'manager' ? 'All divisions' : 'None'}</option>
+          <option value="">{f.role === 'manager' || f.role === 'rtm' ? 'All divisions' : 'None'}</option>
           {[...new Set([...divisions, ...(f.region ? [f.region] : [])])].map((d) => (
             <option key={d} value={d}>
               {d}
@@ -591,7 +593,7 @@ export function FlagsTab({ data, reload, say }) {
 
 /* ---------- messages ---------- */
 
-const AUDIENCE = { all: 'Everyone', sales: 'All sales users', asm: 'ASMs', manager: 'Managers', admin: 'Admins' }
+const AUDIENCE = { all: 'Everyone', sales: 'All sales users', asm: 'ASMs', rtm: 'RTMs', manager: 'Managers', admin: 'Admins' }
 
 export function MessagesTab({ data, reload, say }) {
   const [audience, setAudience] = useState('sales')
@@ -632,6 +634,7 @@ export function MessagesTab({ data, reload, say }) {
             options={[
               { value: 'sales', label: 'Sales' },
               { value: 'asm', label: 'ASMs' },
+              { value: 'rtm', label: 'RTMs' },
               { value: 'manager', label: 'Managers' },
               { value: 'all', label: 'All' },
               { value: 'one', label: 'One' },

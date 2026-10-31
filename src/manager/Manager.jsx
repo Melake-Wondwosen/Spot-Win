@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { managerData } from '../api'
 import { MANAGER_REFRESH_MS } from '../config'
@@ -8,34 +8,20 @@ import Bell from '../components/Bell'
 import ExportButton from '../components/ExportButton'
 import Period from '../components/Period'
 import { clearNotesMemory, setServerNotes } from '../notes'
-import { ago, dateTime, dayStart, periodRange, time } from '../time'
+import { ago, dateTime, dayStart, time } from '../time'
+import { Tile, usePeriod } from './shared'
 import MapView from './MapView'
 import VisitDetail from './VisitDetail'
 import { byActivity, flagLabel, isVoid, teamStatus, text, totals } from './calc'
 import { useThumb } from './photos'
 
-export function usePeriod(initial = 'today') {
-  const [period, setPeriod] = useState(initial)
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
-  const range = useMemo(() => periodRange(period, from, to), [period, from, to])
-  const props = {
-    value: period,
-    from,
-    to,
-    onChange: (k) => {
-      setPeriod(k)
-      setFrom('')
-      setTo('')
-    },
-    onDates: (f, t) => {
-      setFrom(f)
-      setTo(t)
-      setPeriod(f || t ? 'custom' : 'today')
-    },
-  }
-  return { period, range, props }
-}
+// The spending analysis loads only when someone opens it
+const Analysis = lazy(() => import('../admin/Analysis'))
+
+const VIEWS = [
+  { key: 'live', label: 'Live' },
+  { key: 'spending', label: 'Spending' },
+]
 
 export default function Manager() {
   const navigate = useNavigate()
@@ -48,6 +34,7 @@ export default function Manager() {
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(null)
   const [openVisit, setOpenVisit] = useState(null)
+  const [view, setView] = useState('live')
 
   const load = useCallback(async () => {
     setBusy(true)
@@ -92,7 +79,7 @@ export default function Manager() {
 
   const online = team.filter((u) => u.online).length
   const activeToday = team.filter((u) => u.seenToday).length
-  const title = data?.scopeLabel || (user.role === 'admin' ? 'Manager view · All divisions' : user.role === 'asm' ? 'ASM' : 'Manager')
+  const title = data?.scopeLabel || (user.role === 'admin' ? 'Manager view · All divisions' : user.role === 'asm' ? 'ASM' : user.role === 'rtm' ? 'RTM · All divisions' : 'Manager · All divisions')
 
   return (
     <main className="min-h-full safe-bottom anim-fade bg-[#fbfaf7]">
@@ -113,7 +100,20 @@ export default function Manager() {
             <Bell />
             <SignOutButton onClick={signOut} />
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="mt-4 flex rounded-full bg-paper/10 p-1 w-fit">
+            {VIEWS.map((v) => (
+              <button
+                key={v.key}
+                type="button"
+                onClick={() => setView(v.key)}
+                className={`px-5 min-h-[34px] rounded-full text-sm font-semibold ${view === v.key ? 'bg-paper text-ink shadow-sm' : 'tab-hover text-paper/70 hover:text-paper'}`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+          {view === 'live' && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Period {...periodProps} />
             <div className="ml-auto flex items-center gap-2">
               <button type="button" onClick={load} disabled={busy} className="text-xs text-paper/65 h-10 px-2 inline-flex items-center gap-2 hover:text-paper">
@@ -122,10 +122,19 @@ export default function Manager() {
               <ExportButton filters={() => ({ from: range.from, to: range.to, status: 'Saved' })} meta={() => ({ division: data?.division || (user.role === 'asm' ? user.agent : '') })} />
             </div>
           </div>
+          )}
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 space-y-5">
+      {view === 'spending' && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 anim-rise">
+          <Suspense fallback={<div className="skeleton h-40 rounded-2xl" />}>
+            <Analysis role={user.role} scopeLabel={data?.scopeLabel} exportMeta={() => ({ division: data?.division || (user.role === 'asm' ? user.agent : '') })} />
+          </Suspense>
+        </div>
+      )}
+
+      <div className={`max-w-6xl mx-auto px-4 sm:px-6 py-5 space-y-5 ${view === 'live' ? '' : 'hidden'}`}>
         {error && <p className="rounded-xl bg-paper border border-ink/15 border-l-4 border-l-gold text-ink text-sm px-4 py-3">{error}</p>}
         {!data && !error && (
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
@@ -183,21 +192,6 @@ export default function Manager() {
       </div>
       {openVisit && <VisitDetail id={openVisit} onClose={() => setOpenVisit(null)} canVoid={user.role === 'admin'} onChanged={load} />}
     </main>
-  )
-}
-
-export function Tile({ i, label, value, sub, live, gold }) {
-  return (
-    <div className={`tilt spot rounded-2xl border px-4 py-3.5 min-w-0 ${gold ? 'bg-ink text-paper border-ink spot-dark' : 'bg-white border-ink/10'}`} style={{ '--i': i }} data-tilt="6">
-      <p className={`text-[11px] uppercase tracking-[0.14em] flex items-center gap-1.5 truncate ${gold ? 'text-gold' : 'text-gold-dark'}`}>
-        {live && <span className="w-2 h-2 rounded-full bg-gold live-dot shrink-0" />}
-        {label}
-      </p>
-      <p key={String(value)} className="tilt-pop font-serif text-[28px] leading-tight mt-1 truncate tabular anim-count">
-        {value}
-      </p>
-      {sub && <p className={`text-xs truncate ${gold ? 'text-paper/50' : 'text-ink/50'}`}>{sub}</p>}
-    </div>
   )
 }
 
