@@ -22,6 +22,8 @@ let db = null
 function build() {
   const now = Date.now()
   const users = NAMES.map((name, i) => ({ id: `S-${String(i + 1).padStart(2, '0')}`, name, username: name.split(' ')[0].toLowerCase(), staffId: `HB${1040 + i}`, region: GEO[i % 4].division, role: 'sales', active: true }))
+  users.forEach((u, i) => (u.agent = GEO[i % 4].agent))
+  users.push({ id: 'ASM-1', name: 'Demo ASM', username: 'asm', staffId: 'HB0501', region: 'North Addis', agent: 'Demo Agent A plc', role: 'asm', active: true })
   users.push({ id: 'M-01', name: 'Demo Manager', username: 'manager', staffId: 'HB0901', region: 'North Addis', role: 'manager', active: true })
   users.push({ id: 'A-01', name: 'Demo Admin', username: 'admin', staffId: 'HB0001', region: '', role: 'admin', active: true })
   const home = NAMES.map(() => ({ lat: CENTER.lat + (rnd() - 0.5) * 0.09, lng: CENTER.lng + (rnd() - 0.5) * 0.11 }))
@@ -121,7 +123,7 @@ function demoPhoto(id, w, h) {
   return data
 }
 
-const roleOf = (u) => (/admin/i.test(u) ? 'admin' : /manager|melake/i.test(u) ? 'manager' : 'sales')
+const roleOf = (u) => (/admin/i.test(u) ? 'admin' : /\basm\b/i.test(u) ? 'asm' : /manager|melake/i.test(u) ? 'manager' : 'sales')
 let me = null
 const between = (iso, from, to) => (!from || iso >= from) && (!to || iso < to)
 
@@ -137,7 +139,7 @@ function exportFilter(f) {
   const d = D()
   return d.visits
     .filter((v) => between(v.date, f.from, f.to))
-    .filter((v) => (me?.role === 'manager' ? v.division === 'North Addis' : !f.division || v.division === f.division))
+    .filter((v) => (me?.role === 'asm' ? v.agent === me.agent : me?.role === 'manager' ? v.division === 'North Addis' : !f.division || v.division === f.division))
     .filter((v) => !f.userId || v.userId === f.userId)
     .filter((v) => !f.activity || v.activity === f.activity)
     .filter((v) => !f.unit || v.investmentUnit === f.unit)
@@ -206,12 +208,13 @@ export async function demoCall(action, p) {
       return { visits: [] }
     case 'managerData': {
       const scoped = me?.role === 'manager'
-      const users = d.users.filter((u) => u.role === 'sales' && (!scoped || u.region === 'North Addis'))
+      const asm = me?.role === 'asm'
+      const users = d.users.filter((u) => u.role === 'sales' && (asm ? u.agent === me.agent : !scoped || u.region === 'North Addis'))
       const ids = new Set(users.map((u) => u.id))
-      const visits = d.visits.filter((v) => between(v.date, p.from, p.to) && (!scoped || v.division === 'North Addis'))
+      const visits = d.visits.filter((v) => between(v.date, p.from, p.to) && (asm ? v.agent === me.agent : !scoped || v.division === 'North Addis'))
       if (p.lite) return { serverTime: new Date().toISOString(), visits }
       return {
-        serverTime: new Date().toISOString(), division: scoped ? 'North Addis' : '', users, visits,
+        serverTime: new Date().toISOString(), division: scoped ? 'North Addis' : '', scopeLabel: asm ? 'ASM · ' + me.agent : scoped ? 'Manager · North Addis' : '', users, visits,
         presence: d.presence.filter((x) => ids.has(x.userId)), track: d.track.filter((x) => ids.has(x.userId) && x.date >= (p.trackFrom || '')),
         flags: d.flags.filter((x) => ids.has(x.userId)), notes: notesFor(me?.role || 'manager'),
       }
@@ -235,12 +238,12 @@ export async function demoCall(action, p) {
     case 'adminData':
       return {
         serverTime: new Date().toISOString(), users: d.users.map((u) => ({ ...u, lastSeen: d.presence.find((x) => x.userId === u.id)?.lastSeen || '' })),
-        outlets: d.outletsTab, flags: d.flags, notices: d.notices, settings: d.settings, divisions: ['North Addis', 'South Addis'], notes: notesFor('admin'),
+        outlets: d.outletsTab, flags: d.flags, notices: d.notices, settings: d.settings, divisions: ['North Addis', 'South Addis'], agents: GEO.map((g) => [g.division, g.agent]), notes: notesFor('admin'),
       }
     case 'saveUser': {
       const u = p.user
       const i = d.users.findIndex((x) => x.id === u.originalId)
-      const row = { name: u.name, username: u.username, staffId: u.staffId, role: u.role, region: u.region, active: u.active !== false }
+      const row = { name: u.name, username: u.username, staffId: u.staffId, role: u.role, region: u.region, agent: u.agent, active: u.active !== false }
       if (i > -1) d.users[i] = { ...d.users[i], ...row }
       else d.users.push({ id: u.staffId || u.username, ...row })
       return {}

@@ -90,7 +90,7 @@ var MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 var MAX_THUMB_CHARS = 45000;
 
 var HEADERS = {
-  Users: ['id', 'username', 'password', 'name', 'staffId', 'role', 'region', 'active'],
+  Users: ['id', 'username', 'password', 'name', 'staffId', 'role', 'region', 'agent', 'active'],
   Visits: ['id', 'status', 'date', 'userId', 'userName', 'staffId', 'outletId', 'outletName', 'division', 'agent', 'parentTerritory', 'territory',
     'activity', 'investmentUnit', 'amount',
     'receiptPhotoId', 'receiptUrl', 'receiptSource', 'receiptHash', 'receiptAt',
@@ -223,7 +223,7 @@ function usersTable_() {
   var c = {
     user: col(['username', 'user', 'login']), pass: col(['password', 'pass', 'pin']), id: col(['id', 'userid']),
     name: col(['name', 'fullname']), staff: col(['staffid', 'staff']), role: col(['role', 'type']),
-    region: col(['region', 'division']), active: col(['active', 'status'])
+    region: col(['region', 'division']), agent: col(['agent', 'agents']), active: col(['active', 'status'])
   };
   if (c.user < 0 || c.pass < 0) fail_('Users tab needs username and password columns.');
   var users = [];
@@ -240,8 +240,9 @@ function usersTable_() {
       id: c.id > -1 && String(row[c.id]).trim() ? String(row[c.id]).trim() : un,
       name: c.name > -1 && String(row[c.name]).trim() ? String(row[c.name]).trim() : un,
       staffId: c.staff > -1 ? String(row[c.staff]).trim() : '',
-      role: role.indexOf('admin') > -1 ? 'admin' : role.indexOf('manager') > -1 ? 'manager' : 'sales',
+      role: roleOf_(role),
       region: c.region > -1 ? String(row[c.region]).trim() : '',
+      agent: c.agent > -1 ? String(row[c.agent]).trim() : '',
       active: ['no', 'false', 'inactive', 'blocked', '0'].indexOf(act) < 0
     });
   }
@@ -264,26 +265,74 @@ function findUser_(id) {
   return null;
 }
 
-function publicUser_(u) {
-  return { id: u.id, name: u.name, username: u.username, staffId: u.staffId || '', role: u.role, region: u.region || '', active: u.active };
+// Role from the Users tab. "asm" or "area sales" = ASM; checked before
+// "manager", so "Area Sales Manager" is an ASM.
+function roleOf_(text) {
+  var r = String(text || '').toLowerCase();
+  if (r.indexOf('admin') > -1) return 'admin';
+  if (/\basm\b|area\s*sales/.test(r)) return 'asm';
+  if (r.indexOf('manager') > -1) return 'manager';
+  return 'sales';
 }
 
-/* ================= divisions ================= */
-// A manager's region in Users is their division. They see sales users of the
-// same region, visits to outlets in that division and alerts of their users.
+var VIEWERS = ['manager', 'asm', 'admin'];
+
+function publicUser_(u) {
+  return { id: u.id, name: u.name, username: u.username, staffId: u.staffId || '', role: u.role, region: u.region || '', agent: u.agent || '', active: u.active };
+}
+
+/* ================= divisions and agents ================= */
+// A manager's region in Users is their division: they see sales users of that
+// region and visits to outlets in that division. An ASM's agent in Users
+// (one, or several separated by commas) limits them to sales users of that
+// agent and visits to that agent's outlets. Admins see everything.
 
 function sameDiv_(a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); }
+function agentsOf_(text) { return String(text || '').split(/[,;]/).map(function (a) { return a.trim().toLowerCase(); }).filter(String); }
+function anyAgent_(list, value) { var v = String(value || '').trim().toLowerCase(); return !!v && list.indexOf(v) > -1; }
 
 function scopeFor_(me) {
-  if (me.role !== 'manager' || !String(me.region || '').trim()) return null;
   var ids = {};
+  if (me.role === 'asm') {
+    var agents = agentsOf_(me.agent);
+    readUsers_().forEach(function (u) { if (u.role === 'sales' && agentsOf_(u.agent).some(function (a) { return agents.indexOf(a) > -1; })) ids[u.id] = true; });
+    return { kind: 'agent', agents: agents, label: 'ASM · ' + (me.agent || 'no agent set'), ids: ids };
+  }
+  if (me.role !== 'manager' || !String(me.region || '').trim()) return null;
   readUsers_().forEach(function (u) { if (u.role === 'sales' && sameDiv_(u.region, me.region)) ids[u.id] = true; });
-  return { division: me.region, ids: ids };
+  return { kind: 'division', division: me.region, label: 'Manager · ' + me.region, ids: ids };
 }
 
 function visitInScope_(scope, v) {
   if (!scope) return true;
+  if (scope.kind === 'agent') return String(v.agent || '').trim() ? anyAgent_(scope.agents, v.agent) : !!scope.ids[String(v.userId)];
   return String(v.division || '').trim() ? sameDiv_(v.division, scope.division) : !!scope.ids[String(v.userId)];
+}
+
+// Division and agent pairs from National Outlet, for the admin's user form. Cached 6 h.
+function agentList_() {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get('agents_v1');
+  if (hit) return JSON.parse(hit);
+  var out = [];
+  var sheet = nationalSheet_();
+  if (sheet && sheet.getLastRow() > 1) {
+    var c = nationalCols_(sheet);
+    if (c.agent > -1) {
+      var seen = {};
+      var n = sheet.getLastRow() - 1;
+      var ag = sheet.getRange(2, c.agent + 1, n, 1).getValues();
+      var dv = c.division > -1 ? sheet.getRange(2, c.division + 1, n, 1).getValues() : null;
+      for (var i = 0; i < n; i++) {
+        var a = String(ag[i][0]).trim();
+        var d = dv ? String(dv[i][0]).trim() : '';
+        if (a && !seen[d + '|' + a]) { seen[d + '|' + a] = true; out.push([d, a]); }
+      }
+      out.sort(function (x, y) { return (x[0] + x[1]).localeCompare(y[0] + y[1]); });
+    }
+  }
+  try { cache.put('agents_v1', JSON.stringify(out), 21600); } catch (e) { /* too big */ }
+  return out;
 }
 
 function divisionList_() {
@@ -435,7 +484,7 @@ function notifications_(b) {
 
 function notesFor_(u) {
   var since = new Date(Date.now() - 30 * 864e5).toISOString();
-  var role = u.role === 'manager' || u.role === 'admin' ? u.role : 'sales';
+  var role = VIEWERS.indexOf(u.role) > -1 ? u.role : 'sales';
   var notes = readRows_('Notifications', 400).filter(function (n) {
     var tg = String(n.target);
     return String(n.date) >= since && (tg === 'all' || tg === role || tg === 'user:' + u.id);
@@ -444,7 +493,7 @@ function notesFor_(u) {
   });
   if (role !== 'sales') {
     var fSince = new Date(Date.now() - 14 * 864e5).toISOString();
-    var scope = role === 'manager' ? scopeFor_(findUser_(u.id) || u) : null;
+    var scope = role !== 'admin' ? scopeFor_(findUser_(u.id) || u) : null;
     readRows_('Flags', 300).forEach(function (f) {
       if (String(f.status) === 'resolved' || String(f.date) < fSince) return;
       if (scope && !scope.ids[String(f.userId)]) return;
@@ -469,7 +518,7 @@ function addNotice_(from, target, kind, title, body) {
 }
 
 function resolveFlag_(b) {
-  var me = requireUser_(b.token, ['manager', 'admin']);
+  var me = requireUser_(b.token, VIEWERS);
   var done = false;
   withLock_(function () {
     done = updateWhere_(sheet_('Flags'), 'id', String(b.id), { status: 'resolved', resolvedBy: me.name, resolvedAt: now_() });
@@ -481,7 +530,7 @@ function resolveFlag_(b) {
 function sendNotice_(b) {
   var me = requireUser_(b.token, ['admin']);
   var target = String(b.target || 'all');
-  if (['all', 'sales', 'manager', 'admin'].indexOf(target) < 0 && target.indexOf('user:') !== 0) fail_('Pick who should get it.');
+  if (['all', 'sales', 'asm', 'manager', 'admin'].indexOf(target) < 0 && target.indexOf('user:') !== 0) fail_('Pick who should get it.');
   if (!String(b.title || '').trim()) fail_('Add a title.');
   withLock_(function () { addNotice_(me, target, 'notice', String(b.title).trim(), String(b.body || '').trim()); });
   return {};
@@ -598,9 +647,12 @@ function lookupOutlet_(b) {
 function outletPack_(b) {
   var u = requireUser_(b.token);
   var version = packVersion_();
+  var agents = agentsOf_(u.agent);
   var region = String(u.region || '').trim().toLowerCase();
-  var key = version + '|' + region;
+  var key = version + '|' + region + '|' + agents.join(',');
   if (b.version && b.version === key) return { same: true, version: key };
+  var hit = cacheGetBig_('pack_' + key);
+  if (hit) return JSON.parse(hit);
 
   var dict = [], index = {};
   var ref = function (v) {
@@ -608,19 +660,24 @@ function outletPack_(b) {
     if (!(v in index)) { index[v] = dict.length; dict.push(v); }
     return index[v];
   };
-  var rows = [], seen = {}, mine = false;
+  var rows = [], seen = {}, label = '';
   var sheet = nationalSheet_();
   if (sheet && sheet.getLastRow() > 1) {
     var c = nationalCols_(sheet);
     if (c.id > -1) {
       var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, c.width).getValues();
-      mine = !!region && c.division > -1 && values.some(function (r) { return String(r[c.division]).trim().toLowerCase() === region; });
+      var lower = function (r, i) { return i < 0 ? '' : String(r[i]).trim().toLowerCase(); };
+      // The user's agent if it matches any outlets, else their division, else everything
+      var byAgent = agents.length && c.agent > -1 && values.some(function (r) { return agents.indexOf(lower(r, c.agent)) > -1; });
+      var byDiv = !byAgent && !!region && c.division > -1 && values.some(function (r) { return lower(r, c.division) === region; });
+      label = byAgent ? u.agent : byDiv ? u.region : '';
       var cell = function (r, i) { return i < 0 ? '' : r[i]; };
       for (var r = 0; r < values.length; r++) {
         var row = values[r];
         var id = normId_(row[c.id]);
         if (!id || seen[id]) continue;
-        if (mine && String(row[c.division]).trim().toLowerCase() !== region) continue;
+        if (byAgent && agents.indexOf(lower(row, c.agent)) < 0) continue;
+        if (byDiv && lower(row, c.division) !== region) continue;
         seen[id] = true;
         rows.push([id, String(cell(row, c.name)).trim(), ref(cell(row, c.division)), ref(cell(row, c.agent)), ref(cell(row, c.parent)), ref(cell(row, c.territory))]);
       }
@@ -633,7 +690,36 @@ function outletPack_(b) {
     seen[id] = true;
     rows.push([id, String(o.outletName).replace(/^'/, ''), empty, empty, empty, empty]);
   });
-  return { version: key, division: mine ? u.region : '', dict: dict, rows: rows };
+  var out = { version: key, division: label, dict: dict, rows: rows };
+  cachePutBig_('pack_' + key, JSON.stringify(out), 21600);
+  return out;
+}
+
+// CacheService holds 100 KB per entry, so big values are stored in pieces
+function cachePutBig_(key, text, ttl) {
+  var cache = CacheService.getScriptCache();
+  var size = 90000, parts = {}, n = Math.ceil(text.length / size);
+  if (n > 200) return;
+  var tag = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, key)).slice(0, 16);
+  for (var i = 0; i < n; i++) parts['big_' + tag + '_' + i] = text.slice(i * size, (i + 1) * size);
+  parts['big_' + tag + '_n'] = String(n);
+  try { cache.putAll(parts, ttl); } catch (e) { /* cache full: next request rebuilds */ }
+}
+
+function cacheGetBig_(key) {
+  var cache = CacheService.getScriptCache();
+  var tag = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, key)).slice(0, 16);
+  var n = Number(cache.get('big_' + tag + '_n') || 0);
+  if (!n) return null;
+  var keys = [];
+  for (var i = 0; i < n; i++) keys.push('big_' + tag + '_' + i);
+  var got = cache.getAll(keys);
+  var text = '';
+  for (var j = 0; j < n; j++) {
+    if (got[keys[j]] == null) return null;
+    text += got[keys[j]];
+  }
+  return text;
 }
 
 // The approved Outlets list
@@ -817,7 +903,7 @@ function uploadPhoto_(b) {
 
 // Photos load in the app only through here. Managers get photos of their division only.
 function getPhoto_(b) {
-  var me = requireUser_(b.token, ['manager', 'admin']);
+  var me = requireUser_(b.token, VIEWERS);
   var scope = scopeFor_(me);
   var divisions = null;
   var allowed = function (visitId) {
@@ -827,8 +913,8 @@ function getPhoto_(b) {
       var vs = sheet_('Visits');
       var h = headers_(vs);
       if (vs.getLastRow() > 1) {
-        var ic = h.indexOf('id'), dc = h.indexOf('division'), uc = h.indexOf('userId');
-        vs.getRange(2, 1, vs.getLastRow() - 1, h.length).getValues().forEach(function (r) { divisions[String(r[ic])] = { division: r[dc], userId: r[uc] }; });
+        var ic = h.indexOf('id'), dc = h.indexOf('division'), ac = h.indexOf('agent'), uc = h.indexOf('userId');
+        vs.getRange(2, 1, vs.getLastRow() - 1, h.length).getValues().forEach(function (r) { divisions[String(r[ic])] = { division: r[dc], agent: r[ac], userId: r[uc] }; });
       }
     }
     var v = divisions[visitId];
@@ -856,7 +942,7 @@ function getPhoto_(b) {
 
   var p = photoRow_(String(b.id || ''));
   if (!p) fail_('Photo not found.');
-  if (!allowed(String(p.visitId))) fail_('This photo is outside your division.');
+  if (!allowed(String(p.visitId))) fail_('This photo is outside your area.');
   var blob = DriveApp.getFileById(String(p.fileId)).getBlob();
   return { data: Utilities.base64Encode(blob.getBytes()), mime: blob.getContentType() || 'image/jpeg' };
 }
@@ -954,7 +1040,7 @@ function myVisits_(b) {
 }
 
 function managerData_(b) {
-  var me = requireUser_(b.token, ['manager', 'admin']);
+  var me = requireUser_(b.token, VIEWERS);
   var scope = scopeFor_(me);
   var from = b.from ? String(b.from) : '';
   var to = b.to ? String(b.to) : '';
@@ -967,9 +1053,10 @@ function managerData_(b) {
   var flagFrom = from && from < trackFrom ? from : trackFrom;
   return {
     serverTime: now_(),
-    division: scope ? scope.division : '',
+    division: scope && scope.kind === 'division' ? scope.division : '',
+    scopeLabel: scope ? scope.label : '',
     users: readUsers_().filter(function (u) { return u.role === 'sales' && u.active && mine(u.id); })
-      .map(function (u) { return { id: u.id, name: u.name, username: u.username, staffId: u.staffId, region: u.region }; }),
+      .map(function (u) { return { id: u.id, name: u.name, username: u.username, staffId: u.staffId, region: u.region, agent: u.agent }; }),
     presence: readRows_('Presence', 0).filter(function (p) { return mine(p.userId); }),
     visits: visits,
     track: readRows_('Track', 8000).filter(function (r) { return String(r.date) >= trackFrom && mine(r.userId); }),
@@ -979,7 +1066,7 @@ function managerData_(b) {
 }
 
 function visitDetail_(b) {
-  var me = requireUser_(b.token, ['manager', 'admin']);
+  var me = requireUser_(b.token, VIEWERS);
   var sheet = sheet_('Visits');
   var r = findRow_(sheet, 'id', String(b.id || ''));
   if (!r) fail_('Visit not found.');
@@ -987,7 +1074,7 @@ function visitDetail_(b) {
   var vals = sheet.getRange(r, 1, 1, h.length).getValues()[0];
   var v = {};
   h.forEach(function (k, i) { v[k] = vals[i] instanceof Date ? vals[i].toISOString() : vals[i]; });
-  if (!visitInScope_(scopeFor_(me), v)) fail_('This visit is outside your division.');
+  if (!visitInScope_(scopeFor_(me), v)) fail_('This visit is outside your area.');
   var flags = readRows_('Flags', 0).filter(function (f) { return String(f.visitId) === String(v.id); });
   var o = findOutlet_(v.outletId);
   return { visit: v, flags: flags, outlet: o && o.lat !== '' ? { lat: o.lat, lng: o.lng } : null };
@@ -1007,7 +1094,7 @@ function voidVisit_(b) {
 
 // Filtered rows in pages of 2,000. The first page is logged in Exports.
 function exportVisits_(b) {
-  var me = requireUser_(b.token, ['manager', 'admin']);
+  var me = requireUser_(b.token, VIEWERS);
   var scope = scopeFor_(me);
   var f = b.filters || {};
   var page = Math.max(0, Number(b.page) || 0);
@@ -1035,7 +1122,7 @@ function exportVisits_(b) {
   if (page === 0) {
     appendFast_(sheet_('Exports'), {
       date: now_(), userId: me.id, userName: me.name, role: me.role,
-      filters: JSON.stringify({ from: f.from || '', to: f.to || '', division: scope ? scope.division : f.division || '', userId: f.userId || '', activity: f.activity || '', unit: f.unit || '', status: f.status || '', q: q }),
+      filters: JSON.stringify({ from: f.from || '', to: f.to || '', division: scope ? scope.label : f.division || '', userId: f.userId || '', activity: f.activity || '', unit: f.unit || '', status: f.status || '', q: q }),
       rowCount: rows.length
     });
   }
@@ -1060,6 +1147,7 @@ function adminData_(b) {
     notices: readRows_('Notifications', 200).filter(function (n) { return n.kind === 'notice'; }),
     settings: readSettings_(),
     divisions: divisionList_(),
+    agents: agentList_(),
     notes: notesFor_(me)
   };
 }
@@ -1070,18 +1158,20 @@ function saveUser_(b) {
   var username = String(u.username || '').trim();
   var name = String(u.name || '').trim();
   var staffId = String(u.staffId || '').trim().toUpperCase();
-  var role = ['sales', 'manager', 'admin'].indexOf(u.role) > -1 ? u.role : 'sales';
+  var role = ['sales', 'asm', 'manager', 'admin'].indexOf(u.role) > -1 ? u.role : 'sales';
+  var agent = String(u.agent || '').trim();
   var active = u.active !== false;
   var password = String(u.password || '').trim();
   var region = String(u.region || '').trim();
   if (!username || !name) fail_('Name and username are required.');
   if (/\s/.test(username)) fail_('Usernames cannot contain spaces.');
+  if (role === 'asm' && !agent) fail_('Choose the agent this ASM covers.');
 
   var msg = null;
   withLock_(function () {
     var t = usersTable_();
     // Add any missing columns at the end before writing to them
-    var need = [['id', 'id'], ['name', 'name'], ['staff', 'staffId'], ['role', 'role'], ['region', 'region'], ['active', 'active']].filter(function (p) { return t.c[p[0]] < 0; });
+    var need = [['id', 'id'], ['name', 'name'], ['staff', 'staffId'], ['role', 'role'], ['region', 'region'], ['agent', 'agent'], ['active', 'active']].filter(function (p) { return t.c[p[0]] < 0; });
     if (need.length) {
       t.sheet.getRange(1, t.sheet.getLastColumn() + 1, 1, need.length).setValues([need.map(function (p) { return p[1]; })]).setFontWeight('bold');
       t = usersTable_();
@@ -1111,6 +1201,7 @@ function saveUser_(b) {
     if (!editing || editing.role !== role) put(t.c.role, role === 'sales' ? '' : role);
     put(t.c.active, active ? 'yes' : 'no');
     put(t.c.region, region);
+    put(t.c.agent, agent);
     if (password) put(t.c.pass, password);
     clearUsersCache_();
   });
@@ -1296,7 +1387,7 @@ function importSurveyUsers() {
       appendByHeader_(target, {
         id: id, username: username, password: at(values[r], ['password']), name: at(values[r], ['name']) || username,
         staffId: at(values[r], ['staffid', 'id']), region: at(values[r], ['region', 'division']),
-        role: role.indexOf('admin') > -1 ? 'admin' : role.indexOf('manager') > -1 ? 'manager' : '',
+        role: roleOf_(role) === 'sales' ? '' : roleOf_(role), agent: at(values[r], ['agent']),
         active: ['no', 'false', 'inactive', 'blocked', '0'].indexOf(act) > -1 ? 'no' : 'yes'
       });
       have[username.toLowerCase()] = true; ids[id] = true; added++;

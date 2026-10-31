@@ -92,7 +92,7 @@ export default function Manager() {
 
   const online = team.filter((u) => u.online).length
   const activeToday = team.filter((u) => u.seenToday).length
-  const title = data?.division ? `Manager · ${data.division}` : user.role === 'admin' ? 'Manager view · All divisions' : 'Manager'
+  const title = data?.scopeLabel || (user.role === 'admin' ? 'Manager view · All divisions' : user.role === 'asm' ? 'ASM' : 'Manager')
 
   return (
     <main className="min-h-full safe-bottom anim-fade bg-[#fbfaf7]">
@@ -119,7 +119,7 @@ export default function Manager() {
               <button type="button" onClick={load} disabled={busy} className="text-xs text-paper/65 h-10 px-2 inline-flex items-center gap-2 hover:text-paper">
                 {busy ? <Spinner /> : '↻'} {fetchedAt ? `Updated ${time(fetchedAt)}` : 'Loading'}
               </button>
-              <ExportButton filters={() => ({ from: range.from, to: range.to, status: 'Saved' })} meta={() => ({ division: data?.division || '' })} />
+              <ExportButton filters={() => ({ from: range.from, to: range.to, status: 'Saved' })} meta={() => ({ division: data?.division || (user.role === 'asm' ? user.agent : '') })} />
             </div>
           </div>
         </div>

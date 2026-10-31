@@ -61,11 +61,12 @@ export default function Home() {
     if (syncing) return
     setSyncing(true)
     if (!quiet) setResult(null)
-    const pack = syncPack(undefined, !quiet)
+    // The outlet data downloads in the background; Sync doesn't wait for it
+    syncPack(undefined, !quiet)
     const flush = await flushQueue()
     let online = true
     try {
-      const [d] = await Promise.all([notifications(), pack])
+      const d = await notifications()
       setServerNotes(d.notes)
       await fillFromServer()
     } catch {

@@ -74,14 +74,14 @@ function useSave(reload, say, onClose) {
 
 /* ---------- users ---------- */
 
-const ROLE_LABEL = { sales: 'Sales', manager: 'Manager', admin: 'Admin' }
+const ROLE_LABEL = { sales: 'Sales', asm: 'ASM', manager: 'Manager', admin: 'Admin' }
 
 export function UsersTab({ data, reload, say }) {
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState(null)
   const users = data.users
   const list = users
-    .filter((u) => !q || [u.name, u.username, u.id, u.staffId, u.region, ROLE_LABEL[u.role]].some((v) => norm(v).includes(norm(q))))
+    .filter((u) => !q || [u.name, u.username, u.id, u.staffId, u.region, u.agent, ROLE_LABEL[u.role]].some((v) => norm(v).includes(norm(q))))
     .sort((a, b) => b.active - a.active || a.role.localeCompare(b.role) || a.name.localeCompare(b.name))
 
   return (
@@ -89,9 +89,9 @@ export function UsersTab({ data, reload, say }) {
       <Summary
         items={[
           { label: 'Sales users', value: users.filter((u) => u.role === 'sales' && u.active).length },
+          { label: 'ASMs', value: users.filter((u) => u.role === 'asm' && u.active).length },
           { label: 'Managers', value: users.filter((u) => u.role === 'manager' && u.active).length },
           { label: 'Admins', value: users.filter((u) => u.role === 'admin' && u.active).length },
-          { label: 'Blocked', value: users.filter((u) => !u.active).length },
         ]}
       />
       <div className="flex gap-2.5 mb-3">
@@ -113,11 +113,12 @@ export function UsersTab({ data, reload, say }) {
                   {u.username}
                   {u.staffId ? ` · ${u.staffId}` : ''}
                   {u.region ? ` · ${u.region}` : ''}
+                  {u.agent ? ` · ${u.agent}` : ''}
                   {u.lastSeen ? ` · seen ${when(u.lastSeen)}` : ''}
                 </span>
               </span>
               <span className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
-                <Chip tone={u.role === 'admin' ? 'dark' : u.role === 'manager' ? 'gold' : 'plain'}>{ROLE_LABEL[u.role]}</Chip>
+                <Chip tone={u.role === 'admin' ? 'dark' : u.role === 'manager' || u.role === 'asm' ? 'gold' : 'plain'}>{ROLE_LABEL[u.role]}</Chip>
                 {!u.active && <Chip tone="red">Blocked</Chip>}
               </span>
             </button>
@@ -125,12 +126,12 @@ export function UsersTab({ data, reload, say }) {
         ))}
         {!list.length && <li className="px-4 py-8 text-center text-sm text-ink/55">No users match.</li>}
       </ul>
-      {editing && <UserSheet user={editing.id ? editing : null} divisions={data.divisions || []} reload={reload} say={say} onClose={() => setEditing(null)} />}
+      {editing && <UserSheet user={editing.id ? editing : null} divisions={data.divisions || []} agents={data.agents || []} reload={reload} say={say} onClose={() => setEditing(null)} />}
     </>
   )
 }
 
-function UserSheet({ user, divisions, reload, say, onClose }) {
+function UserSheet({ user, divisions, agents, reload, say, onClose }) {
   const me = getUser()
   const [f, setF] = useState({
     name: user?.name || '',
@@ -138,6 +139,7 @@ function UserSheet({ user, divisions, reload, say, onClose }) {
     staffId: user?.staffId || '',
     role: user?.role || 'sales',
     region: user?.region || '',
+    agent: user?.agent || '',
     password: '',
     active: user ? user.active : true,
   })
@@ -150,7 +152,7 @@ function UserSheet({ user, divisions, reload, say, onClose }) {
       title={user ? 'Edit user' : 'Add user'}
       onClose={onClose}
       footer={
-        <Button variant="gold" disabled={busy || !f.name.trim() || !f.username.trim() || (!user && !f.password.trim())} onClick={() => run(() => saveUser({ ...f, originalId: user?.id }), user ? `${f.name} updated` : `${f.name} added`)}>
+        <Button variant="gold" disabled={busy || !f.name.trim() || !f.username.trim() || (!user && !f.password.trim()) || (f.role === 'asm' && !f.agent)} onClick={() => run(() => saveUser({ ...f, agent: ['sales', 'asm'].includes(f.role) ? f.agent : '', originalId: user?.id }), user ? `${f.name} updated` : `${f.name} added`)}>
           {busy ? <Spinner /> : user ? 'Save changes' : 'Add user'}
         </Button>
       }
@@ -172,12 +174,13 @@ function UserSheet({ user, divisions, reload, say, onClose }) {
           onChange={(role) => !self && setF({ ...f, role })}
           options={[
             { value: 'sales', label: 'Sales' },
+            { value: 'asm', label: 'ASM' },
             { value: 'manager', label: 'Manager' },
             { value: 'admin', label: 'Admin' },
           ]}
         />
       </Field>
-      <Field label="Division" hint={f.role === 'manager' ? 'The manager sees only this division. Leave blank to see all.' : f.role === 'sales' ? 'Sets which outlets download to their phone and which manager sees them.' : undefined}>
+      <Field label="Division" hint={f.role === 'manager' ? 'The manager sees only this division. Leave blank to see all.' : f.role === 'sales' ? 'Sets which manager sees them, and which outlets download when no agent is set.' : undefined}>
         <select className={inputClass} value={f.region} onChange={put('region')}>
           <option value="">{f.role === 'manager' ? 'All divisions' : 'None'}</option>
           {[...new Set([...divisions, ...(f.region ? [f.region] : [])])].map((d) => (
@@ -187,6 +190,25 @@ function UserSheet({ user, divisions, reload, say, onClose }) {
           ))}
         </select>
       </Field>
+      {(f.role === 'sales' || f.role === 'asm') && (
+        <Field
+          label="Agent"
+          hint={
+            f.role === 'asm'
+              ? 'The ASM sees only the sales people and visits of this agent. To cover several agents, list them with commas in the Users tab.'
+              : 'Their phone downloads only this agent\'s outlets, and the ASM of this agent sees their visits.'
+          }
+        >
+          <select className={inputClass} value={f.agent} onChange={put('agent')}>
+            <option value="">{f.role === 'asm' ? 'Choose an agent' : 'None'}</option>
+            {[...new Set([...agents.filter((a) => !f.region || a[0] === f.region).map((a) => a[1]), ...(f.agent ? [f.agent] : [])])].sort().map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="Password">
         <input className={inputClass} value={f.password} onChange={put('password')} autoComplete="new-password" placeholder={user ? 'Unchanged' : ''} />
       </Field>
@@ -569,7 +591,7 @@ export function FlagsTab({ data, reload, say }) {
 
 /* ---------- messages ---------- */
 
-const AUDIENCE = { all: 'Everyone', sales: 'All sales users', manager: 'Managers', admin: 'Admins' }
+const AUDIENCE = { all: 'Everyone', sales: 'All sales users', asm: 'ASMs', manager: 'Managers', admin: 'Admins' }
 
 export function MessagesTab({ data, reload, say }) {
   const [audience, setAudience] = useState('sales')
@@ -609,6 +631,7 @@ export function MessagesTab({ data, reload, say }) {
             onChange={setAudience}
             options={[
               { value: 'sales', label: 'Sales' },
+              { value: 'asm', label: 'ASMs' },
               { value: 'manager', label: 'Managers' },
               { value: 'all', label: 'All' },
               { value: 'one', label: 'One' },
