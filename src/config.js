@@ -1,6 +1,6 @@
 // Apps Script web app URL (apps-script/SpotWin.gs).
 // Paste the URL ending in /exec from Deploy > New deployment > Web app.
-export const API_URL = 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE'
+export const API_URL = 'https://script.google.com/macros/s/AKfycbybqjHvqYD-r9VejJVVbbnRZvKE8rIkwA6j4ZTEP9J_O4p8vnmh0wl0yIiIuljzdjA4gw/exec'
 
 export const APP_NAME = 'Spot Win'
 export const APP_VERSION = '1.0.0'
