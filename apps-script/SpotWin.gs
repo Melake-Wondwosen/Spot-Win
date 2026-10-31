@@ -136,6 +136,27 @@ function outletSs_() {
   return outlet_ss_cache_;
 }
 
+// The National Outlet tab. Looked for in the Spot Win sheet first, then in the
+// Habesha Survey sheet (OUTLET_SHEET_ID). The tab name is matched loosely:
+// "National Outlet", "National Outlets", "national_outlet" all work.
+var national_cache_ = undefined;
+function nationalSheet_() {
+  if (national_cache_ !== undefined) return national_cache_;
+  var want = function (name) { return /^national\s*_?\s*outlets?(\s*list)?$/i.test(String(name).trim()); };
+  var find = function (book) {
+    if (!book) return null;
+    var tabs = book.getSheets();
+    for (var i = 0; i < tabs.length; i++) if (want(tabs[i].getName()) && tabs[i].getLastRow() > 1) return tabs[i];
+    return null;
+  };
+  var own = null;
+  try { own = find(ss_()); } catch (e) { own = null; }
+  var other = null;
+  if (!own) { try { other = find(outletSs_()); } catch (e) { other = null; } }
+  national_cache_ = own || other || null;
+  return national_cache_;
+}
+
 function photoFolder_() {
   var id = props_().getProperty('PHOTO_FOLDER_ID');
   if (!id) fail_('PHOTO_FOLDER_ID is not set. Run paymentSetup once in the Apps Script editor.');
@@ -267,10 +288,10 @@ function visitInScope_(scope, v) {
 
 function divisionList_() {
   var cache = CacheService.getScriptCache();
-  var hit = cache.get('divisions_v1');
+  var hit = cache.get('divisions_v2');
   if (hit) return JSON.parse(hit);
   var out = [];
-  var sheet = outletSs_().getSheetByName(NATIONAL_TAB);
+  var sheet = nationalSheet_();
   if (sheet && sheet.getLastRow() > 1) {
     var c = nationalCols_(sheet);
     if (c.division > -1) {
@@ -282,7 +303,7 @@ function divisionList_() {
       out.sort();
     }
   }
-  CacheService.getScriptCache().put('divisions_v1', JSON.stringify(out), 21600);
+  CacheService.getScriptCache().put('divisions_v2', JSON.stringify(out), 21600);
   return out;
 }
 
@@ -475,13 +496,15 @@ function bumpOutlets_() { props_().setProperty('OUTLETS_VERSION', String(Date.no
 
 function nationalCols_(sheet) {
   var head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-    .map(function (h) { return String(h).trim().toLowerCase().replace(/[\s_]/g, ''); });
+    .map(function (h) { return String(h).trim().toLowerCase().replace(/[^a-z0-9]/g, ''); });
   var col = function (names) {
     for (var i = 0; i < names.length; i++) { var x = head.indexOf(names[i]); if (x > -1) return x; }
     return -1;
   };
   return {
-    width: head.length, id: col(['id', 'outletid', 'accountid']), name: col(['account', 'accountname', 'outletname', 'name']),
+    width: head.length,
+    id: col(['id', 'outletid', 'accountid', 'customerid', 'outletcode', 'customercode', 'accountcode', 'outletno', 'customerno', 'accountno', 'accountnumber', 'sapid', 'sapcode', 'code']),
+    name: col(['account', 'accountname', 'outletname', 'customername', 'name', 'outlet', 'customer']),
     division: col(['division']), agent: col(['agent']), parent: col(['parentterritory']), territory: col(['territory']),
     lat: col(['latitude', 'lat']), lng: col(['longitude', 'lng', 'long'])
   };
@@ -491,10 +514,10 @@ function nationalCols_(sheet) {
 // an admin edits the approved Outlets list. Phones also refresh once a day.
 function packVersion_() {
   var cache = CacheService.getScriptCache();
-  var hit = cache.get('packver_v1');
+  var hit = cache.get('packver_v2');
   if (hit) return hit;
   var v = '0';
-  var sheet = outletSs_().getSheetByName(NATIONAL_TAB);
+  var sheet = nationalSheet_();
   if (sheet && sheet.getLastRow() > 1) {
     var last = sheet.getLastRow(), cols = sheet.getLastColumn();
     var a = sheet.getRange(2, 1, 1, cols).getValues()[0].join('|');
@@ -502,32 +525,41 @@ function packVersion_() {
     v = last + '-' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, a + '#' + z)).slice(0, 10);
   }
   v = v + '-' + outletsVersion_();
-  cache.put('packver_v1', v, 300);
+  cache.put('packver_v2', v, 300);
   return v;
 }
 
-// One outlet from National Outlet by exact ID. Cached 6 hours.
+// One outlet from National Outlet by ID. Hits are cached 6 hours; misses
+// only 60 seconds, so outlets added to the tab show up straight away.
 function nationalLookup_(id) {
   id = normId_(id);
   if (!id) return null;
   var cache = CacheService.getScriptCache();
-  var hit = cache.get('nat_' + id);
+  var hit = cache.get('nat2_' + id);
   if (hit) return hit === '-' ? null : JSON.parse(hit);
-  var sheet = outletSs_().getSheetByName(NATIONAL_TAB);
-  if (!sheet || sheet.getLastRow() < 2) return null;
+  var sheet = nationalSheet_();
+  if (!sheet) return null;
   var c = nationalCols_(sheet);
   if (c.id < 0) return null;
-  var found = sheet.getRange(2, c.id + 1, sheet.getLastRow() - 1, 1).createTextFinder(id).matchEntireCell(true).matchCase(false).findNext();
+  var n = sheet.getLastRow() - 1;
+  var r = 0;
+  var found = sheet.getRange(2, c.id + 1, n, 1).createTextFinder(id).matchEntireCell(true).matchCase(false).findNext();
+  if (found) r = found.getRow();
+  else {
+    // IDs stored as numbers with separators, as text with spaces or an apostrophe
+    var ids = sheet.getRange(2, c.id + 1, n, 1).getValues();
+    for (var i = 0; i < ids.length; i++) if (normId_(ids[i][0]) === id) { r = i + 2; break; }
+  }
   var out = null;
-  if (found) {
-    var row = sheet.getRange(found.getRow(), 1, 1, c.width).getValues()[0];
+  if (r) {
+    var row = sheet.getRange(r, 1, 1, c.width).getValues()[0];
     var at = function (i) { return i < 0 ? '' : String(row[i]).trim(); };
     out = {
       outletId: id, outletName: at(c.name), division: at(c.division), agent: at(c.agent), parentTerritory: at(c.parent), territory: at(c.territory),
       lat: c.lat > -1 ? coord_(row[c.lat], 90) : '', lng: c.lng > -1 ? coord_(row[c.lng], 180) : ''
     };
   }
-  cache.put('nat_' + id, out ? JSON.stringify(out) : '-', 21600);
+  cache.put('nat2_' + id, out ? JSON.stringify(out) : '-', out ? 21600 : 60);
   return out;
 }
 
@@ -577,7 +609,7 @@ function outletPack_(b) {
     return index[v];
   };
   var rows = [], seen = {}, mine = false;
-  var sheet = outletSs_().getSheetByName(NATIONAL_TAB);
+  var sheet = nationalSheet_();
   if (sheet && sheet.getLastRow() > 1) {
     var c = nationalCols_(sheet);
     if (c.id > -1) {
@@ -660,7 +692,7 @@ function saveOutlet_(b) {
     bumpOutlets_();
   });
   if (result) fail_(result);
-  CacheService.getScriptCache().remove('packver_v1');
+  CacheService.getScriptCache().remove('packver_v2');
   return {};
 }
 
@@ -698,7 +730,7 @@ function importOutlets_(b) {
     }
     bumpOutlets_();
   });
-  CacheService.getScriptCache().remove('packver_v1');
+  CacheService.getScriptCache().remove('packver_v2');
   return { added: added, updated: updated, skipped: skipped };
 }
 
@@ -1233,7 +1265,7 @@ function paymentSetup() {
     Logger.log('Admin account created. Username: admin  Password: ' + pass);
   }
   // Reads the outlet sheet once so its permission is granted now
-  Logger.log('National Outlet rows: ' + ((outletSs_().getSheetByName(NATIONAL_TAB) || { getLastRow: function () { return 1; } }).getLastRow() - 1));
+  checkOutletData();
   Logger.log('Setup done.');
 }
 
@@ -1272,6 +1304,26 @@ function importSurveyUsers() {
   });
   clearUsersCache_();
   Logger.log('Imported ' + added + ' users. Skipped ' + skipped + ' already here.');
+}
+
+// Run from the editor to see which outlet tab and columns the app uses.
+// Pass an ID to test a lookup, or set TEST_ID below.
+function checkOutletData(testId) {
+  var sheet = nationalSheet_();
+  if (!sheet) {
+    Logger.log('No National Outlet tab found. Put a tab named "National Outlet" in the Spot Win sheet, or in the Habesha Survey sheet (OUTLET_SHEET_ID).');
+    return;
+  }
+  var c = nationalCols_(sheet);
+  var head = sheet.getRange(1, 1, 1, c.width).getValues()[0];
+  var name = function (i) { return i < 0 ? 'NOT FOUND' : '"' + head[i] + '"'; };
+  Logger.log('Using tab "' + sheet.getName() + '" in "' + sheet.getParent().getName() + '" with ' + (sheet.getLastRow() - 1) + ' rows.');
+  Logger.log('ID column ' + name(c.id) + ', name ' + name(c.name) + ', division ' + name(c.division) + ', agent ' + name(c.agent) +
+    ', parent territory ' + name(c.parent) + ', territory ' + name(c.territory));
+  if (c.id < 0) Logger.log('The ID column was not found. Name its header "ID" or "Outlet ID".');
+  var first = c.id > -1 && sheet.getLastRow() > 1 ? sheet.getRange(2, c.id + 1).getValue() : '';
+  var id = testId || first;
+  if (id !== '') Logger.log('Lookup ' + id + ': ' + JSON.stringify(nationalLookup_(id)));
 }
 
 /* A Spot Win menu on the sheet, when the script is bound to it */
