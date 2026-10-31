@@ -39,13 +39,12 @@ export default function Login() {
 
       <div className="relative flex-1 flex flex-col justify-center px-6 py-8 max-w-md w-full mx-auto stagger">
         <div className="relative mx-auto" style={{ '--i': 0 }}>
-          <span aria-hidden="true" className="absolute inset-0 -m-10 rounded-full bg-gold/35 blur-3xl" />
-          <WatchingLogo className="relative w-32" glow mood={face.mood} field={face.field} progress={face.progress} />
+          <span aria-hidden="true" className="absolute inset-0 -m-6 rounded-full bg-gold/25 blur-3xl" />
+          <WatchingLogo className="relative w-[min(80vw,320px)]" glow mood={face.mood} field={face.field} progress={face.progress} />
         </div>
         <MovingPattern className="mt-5 -mx-6" style={{ '--i': 1 }} />
-        <div style={{ '--i': 2 }} className="text-center mt-6">
-          <h1 className="text-[30px] leading-tight font-bold tracking-tight">Spot Win</h1>
-          <p className="text-paper/60 mt-1.5 text-[15px]">Sign in to record your outlet visits</p>
+        <div style={{ '--i': 2 }} className="text-center mt-5">
+          <p className="text-paper/60 text-[15px]">Sign in to record your outlet visits</p>
         </div>
         <div className="mt-7" style={{ '--i': 3 }}>
           <SignInForm onWatch={watch} onStatus={status} onDone={(u) => navigate(homeFor(u), { replace: true })} />

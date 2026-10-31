@@ -3,8 +3,7 @@ import { getFix } from '../location'
 import logo from '../assets/logo.png'
 import pattern from '../assets/pattern.png'
 import face from '../assets/face.png'
-import logoFace from '../assets/logo-face.png'
-import logoWord from '../assets/logo-word.png'
+import spotWinLogo from '../assets/spotwin-logo.png'
 
 export function Emblem({ className = '' }) {
   return <img src={face} alt="Habesha" className={className} draggable="false" />
@@ -14,69 +13,62 @@ export function Logo({ className = '', ...rest }) {
   return <img src={logo} alt="Habesha" className={className} draggable="false" {...rest} />
 }
 
-// Sign-in logo whose eyes react to the form. Her eyes are redrawn as shapes
-// over logo-face.png (222 x 220) so they can move:
+// Sign-in logo: the Spot Win wordmark with her eyes redrawn as shapes so they
+// can move. Coordinates are in the PNG's own pixels (720 x 482).
 //   idle      looks straight at you
 //   watch     follows the text as you type (squints at a password)
-//   confused  head tilt, one eye half shut, a "?" beside her
-const EYES = [80, 142] // centre x of each eye; both sit at y 132
-const almond = (cx) => `M${cx - 21} 132Q${cx - 2} 118 ${cx + 20} 131Q${cx - 2} 147 ${cx - 21} 132Z`
+//   confused  the logo tilts, one eye half shuts, a "?" appears
+const LOGO_W = 720
+const LOGO_H = 482
+const EYES = [372.4, 425.6] // centre x of each eye; both sit at y 184
+const EYE_Y = 184
+const SKIN = 'rgb(126, 73, 30)'
+const almond = (cx) => `M${cx - 16} ${EYE_Y}Q${cx} ${EYE_Y - 12.5} ${cx + 16} ${EYE_Y - 0.5}Q${cx} ${EYE_Y + 12} ${cx - 16} ${EYE_Y}Z`
 
 export function WatchingLogo({ mood = 'idle', field = null, progress = 0, glow = false, className = '', ...rest }) {
   const watching = mood === 'watch'
   const confused = mood === 'confused'
   // Pupils: across with the text, down towards the form while typing
-  const px = watching ? -8 + 16 * Math.min(1, progress) : confused ? 2 : 0
-  const py = watching ? (field === 'password' ? 5 : 3.5) : confused ? -2 : 0
+  const px = watching ? -5 + 10 * Math.min(1, progress) : confused ? 1.5 : 0
+  const py = watching ? (field === 'password' ? 2.4 : 1.8) : confused ? -1.5 : 0
   // Upper lids: 0 open, 1 shut
-  const lid = (i) => (watching && field === 'password' ? 0.5 : confused && i === 1 ? 0.55 : 0)
+  const lid = (i) => (watching && field === 'password' ? 0.55 : confused && i === 1 ? 0.6 : 0)
 
   return (
-    <div className={`flex flex-col items-center ${className}`} {...rest}>
-      <div className="relative w-[69%]">
-        <div className="face-tilt relative" style={{ transform: confused ? 'rotate(-9deg)' : 'rotate(0deg)' }}>
-          <img src={logoFace} alt="Habesha" className={`block w-full ${glow ? 'logo-night' : ''}`} draggable="false" />
-          <svg viewBox="0 0 222 220" aria-hidden="true" className="absolute inset-0 w-full h-full">
-            <defs>
-              {EYES.map((cx, i) => (
-                <clipPath key={i} id={`eye-clip-${i}`}>
-                  <path d={almond(cx)} />
-                </clipPath>
-              ))}
-            </defs>
+    <div className={`relative ${className}`} {...rest}>
+      <div className="face-tilt relative" style={{ transform: confused ? 'rotate(-5deg)' : 'rotate(0deg)' }}>
+        <img src={spotWinLogo} alt="Spot Win" width={LOGO_W} height={LOGO_H} className={`block w-full h-auto ${glow ? 'logo-night' : ''}`} draggable="false" />
+        <svg viewBox={`0 0 ${LOGO_W} ${LOGO_H}`} aria-hidden="true" className="absolute inset-0 w-full h-full">
+          <defs>
             {EYES.map((cx, i) => (
-              <g key={i}>
-                <path d={almond(cx)} fill="rgb(202, 233, 245)" />
-                <g clipPath={`url(#eye-clip-${i})`}>
-                  <g className="eye-move" style={{ transform: `translate(${px}px, ${py}px)` }}>
-                    <circle cx={cx} cy="132" r="8.6" fill="#1d1612" />
-                    <circle cx={cx + 3.4} cy="129.6" r="1.7" fill="#fff" />
-                  </g>
-                  <rect
-                    className="eye-lid"
-                    x={cx - 23}
-                    y="117"
-                    width="46"
-                    height="16"
-                    fill="rgb(131, 81, 39)"
-                    stroke="#1b120b"
-                    strokeWidth="2.4"
-                    style={{ transform: `scaleY(${lid(i)})` }}
-                  />
-                </g>
-                <path d={almond(cx)} fill="none" stroke="#1b120b" strokeWidth="3.4" strokeLinejoin="round" />
-              </g>
+              <clipPath key={i} id={`eye-clip-${i}`}>
+                <path d={almond(cx)} />
+              </clipPath>
             ))}
-          </svg>
-        </div>
-        <span
-          aria-hidden="true"
-          className={`absolute -right-3 -top-1 font-serif font-bold text-3xl text-gold-dark transition-all duration-300 ${confused ? 'opacity-100 scale-100 rotate-12' : 'opacity-0 scale-50 rotate-0'}`}
-        >
-          ?
-        </span>
+          </defs>
+          {EYES.map((cx, i) => (
+            <g key={i}>
+              {/* skin over the eye painted in the picture */}
+              <ellipse cx={cx} cy={EYE_Y} rx="19.5" ry="9.6" fill={SKIN} />
+              <path d={almond(cx)} fill="rgb(212, 234, 247)" />
+              <g clipPath={`url(#eye-clip-${i})`}>
+                <g className="eye-move" style={{ transform: `translate(${px}px, ${py}px)` }}>
+                  <circle cx={cx} cy={EYE_Y} r="6.4" fill="#1d1612" />
+                  <circle cx={cx + 2.3} cy={EYE_Y - 1.8} r="1.3" fill="#fff" />
+                </g>
+                <rect className="eye-lid" x={cx - 17} y={EYE_Y - 7} width="34" height="11" fill={SKIN} stroke="#1b120b" strokeWidth="1.6" style={{ transform: `scaleY(${lid(i)})` }} />
+              </g>
+              <path d={almond(cx)} fill="none" stroke="#1b120b" strokeWidth="2.6" strokeLinejoin="round" />
+            </g>
+          ))}
+        </svg>
       </div>
-      <img src={logoWord} alt="" aria-hidden="true" className={`block w-full -mt-px ${glow ? 'logo-word-night' : ''}`} draggable="false" />
+      <span
+        aria-hidden="true"
+        className={`absolute left-[70%] top-[2%] font-serif font-bold text-4xl text-gold transition-all duration-300 ${confused ? 'opacity-100 scale-100 rotate-12' : 'opacity-0 scale-50 rotate-0'}`}
+      >
+        ?
+      </span>
     </div>
   )
 }

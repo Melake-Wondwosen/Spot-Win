@@ -176,7 +176,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 /* Sign-in: dark glass look */
-.logo-night { filter: drop-shadow(0 0 18px rgba(243, 220, 147, 0.35)); }
+.logo-night { filter: drop-shadow(0 0 22px rgba(201, 162, 74, 0.35)); }
 .logo-word-night { filter: brightness(1.75) saturate(0.85) drop-shadow(0 0 12px rgba(243, 220, 147, 0.2)); }
 .login-glass .pt-glint { opacity: 0.3; }
 .glow { position: absolute; border-radius: 9999px; filter: blur(70px); opacity: 0.55; }
