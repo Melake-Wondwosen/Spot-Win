@@ -1182,6 +1182,9 @@ function exportVisits_(b) {
     if (!visitInScope_(scope, v)) return false;
     if (f.division && !sameDiv_(v.division, f.division)) return false;
     if (f.userId && String(v.userId) !== String(f.userId)) return false;
+    if (f.agent && !sameDiv_(v.agent, f.agent)) return false;
+    if (f.territory && !sameDiv_(v.territory, f.territory)) return false;
+    if (f.outletId && normId_(v.outletId) !== normId_(f.outletId)) return false;
     if (f.activity && String(v.activity) !== String(f.activity)) return false;
     if (f.unit && String(v.investmentUnit) !== String(f.unit)) return false;
     if (f.status && String(v.status || 'Saved') !== String(f.status)) return false;
@@ -1201,7 +1204,7 @@ function exportVisits_(b) {
   if (page === 0) {
     appendFast_(sheet_('Exports'), {
       date: now_(), userId: me.id, userName: me.name, role: me.role,
-      filters: JSON.stringify({ from: f.from || '', to: f.to || '', division: scope ? scope.label : f.division || '', userId: f.userId || '', activity: f.activity || '', unit: f.unit || '', status: f.status || '', q: q }),
+      filters: JSON.stringify({ from: f.from || '', to: f.to || '', division: scope ? scope.label : f.division || '', agent: f.agent || '', territory: f.territory || '', outletId: f.outletId || '', userId: f.userId || '', activity: f.activity || '', unit: f.unit || '', status: f.status || '', q: q }),
       rowCount: rows.length
     });
   }

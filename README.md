@@ -45,7 +45,7 @@ The new-password step appears once: at someone's very first sign-in, or the firs
 
 ASMs and RTMs also record visits: the Record a visit button on their team view opens the same five steps sales people use, and the Team button takes them back. Their visits count in their team's totals.
 
-ASMs, RTMs and managers get two views: Live (who is online, map, latest visits) and Spending (totals, spending by agent, territory, sales person or activity, visits per day, Excel export), both limited to their agent or division.
+ASMs, RTMs and managers get two views: Live (who is online, map, latest visits) and Spending (totals and visits per day, with drill-down: tap a division to see its agents, an agent to see its sales people, a sales person to see their visits, and a visit to see its photos and details; a trail at the top goes back up, and Export Excel exports whatever is on screen), both limited to their agent or division.
 
 ## How a visit is saved
 
