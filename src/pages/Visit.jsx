@@ -125,7 +125,7 @@ export default function Visit() {
       const fix = await fixP
       set({ [kind]: { hash: p.hash, source, at, lat: fix?.lat ?? '', lng: fix?.lng ?? '', accuracy: fix?.accuracy ?? '', sizeKb: p.sizeKb, v: Date.now() } })
     } catch (err) {
-      setError(`Could not read that photo. ${err?.message || ''}`.trim())
+      setError(err?.photo ? err.message : `Could not use that photo. ${err?.message || ''}`.trim())
     } finally {
       setBusyPhoto('')
     }
