@@ -2,15 +2,16 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router'
 import { DEMO } from './config'
 import { getUser } from './storage'
-import { isLocked, onLock } from './guard'
+import { devReason, onDev } from './guard'
 import { startPresence } from './presence'
-import { startWatch } from './location'
+import { locationGate, onLocationGate, startWatch } from './location'
 import { homeFor } from './roles'
 import { loadOutlets, syncPack } from './outlets'
 import { reportApp } from './install'
 import Login from './pages/Login'
 import Home from './pages/Home'
-import { Emblem, Spinner } from './components/ui'
+import { Spinner } from './components/ui'
+import { DevGate, LocationGate } from './components/Gate'
 
 // The visit flow loads in the background once the home screen is up, so
 // pressing "Enter to the outlet" opens it at once. Manager and admin screens
@@ -48,22 +49,16 @@ const Loading = () => (
   </div>
 )
 
-function LockScreen() {
-  return (
-    <div className="anim-fade fixed inset-0 z-[9999] bg-ink text-paper flex flex-col items-center justify-center text-center px-8">
-      <Emblem className="w-16 h-16 anim-pop" />
-      <h1 className="font-serif text-2xl mt-5 anim-rise">App locked</h1>
-      <p className="text-paper/75 mt-2 max-w-xs anim-rise">Close developer tools and reopen the app.</p>
-    </div>
-  )
-}
-
 export default function App() {
-  const [locked, setLocked] = useState(isLocked)
-  useEffect(() => onLock(setLocked), [])
+  const [dev, setDev] = useState(devReason)
+  const [loc, setLoc] = useState(locationGate)
+  useEffect(() => onDev(setDev), [])
+  useEffect(() => onLocationGate(setLoc), [])
   // Once per app start
   useEffect(() => reportApp(), [])
-  if (locked) return <LockScreen />
+  // Strict: nothing but the warning page while developer mode is on or location is off
+  if (dev) return <DevGate reason={dev} />
+  if (loc.state === 'off' || loc.state === 'ask') return <LocationGate {...loc} />
 
   return (
     <Router>

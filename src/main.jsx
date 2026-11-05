@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { startGuard } from './guard'
+import { startLocationGate } from './location'
 import { startHover } from './hover'
 import { persistStorage } from './db'
 import { startInstallWatch } from './install'
@@ -9,6 +10,7 @@ import { DEMO } from './config'
 import './index.css'
 
 startGuard()
+startLocationGate()
 startInstallWatch()
 startHover()
 persistStorage()

@@ -67,8 +67,17 @@ Admin > App shows who has Spot Win installed (opened from its home-screen icon),
 | Very short visit | finished less than a minute after start |
 | Duplicate receipt | the receipt file matches a receipt on another visit (SHA-256 of the original file) |
 | GPS jump | two location points imply over 150 km/h (manager view) |
-| Dev tools | a debugger is attached on a sales user's phone |
+| Dev tools | developer tools open, the browser run by a program, or location changed by an add-on (any role) |
 | Location off | location permission removed during a session |
+
+## Strict mode
+
+For every role, on phones and PCs, Spot Win shows nothing but a warning page while:
+
+- location is off: blocked for the site, or the device's location switched off. The page says how to turn it on and closes by itself once location is back. The app checks again every few seconds while blocked, every time it comes back to the screen, and whenever no position has come in for 30 seconds.
+- developer mode is on: developer tools open on a PC, a phone being inspected from a PC over USB, the browser run by a program, or the browser's location functions replaced by an add-on. Each case is sent to Alerts once per app start.
+
+A visit in progress is kept and picks up where it was. A website can't read the Developer options switch on a phone or tell a fake-GPS app's position from a real one; catching those would need a native Android app. The demo build skips the developer check because it is tested by a program; open `preview.html?devgate` to see that page.
 
 Outlet coordinates for the distance check come from the Outlets tab, or from Latitude and Longitude columns in National Outlet if it has them.
 

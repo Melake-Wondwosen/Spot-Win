@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { myVisits, notifications } from '../api'
 import { photoDel } from '../db'
-import { getFix, locationMessage, onLocation } from '../location'
+import { locationMessage, onLocation } from '../location'
 import { addLocalNote, clearNotesMemory, setServerNotes } from '../notes'
 import { clearPack, syncPack } from '../outlets'
 import { setActivity, stopPresence } from '../presence'
@@ -12,7 +12,7 @@ import { dayStart, time } from '../time'
 import { ACTIVITIES, STEP_COUNT } from '../config'
 import Bell from '../components/Bell'
 import InstallButton from '../components/InstallButton'
-import { amountText, Avatar, Button, LocationBlocked, Notice, Pattern, Sheet, SignOutButton } from '../components/ui'
+import { amountText, Avatar, Button, Notice, Pattern, Sheet, SignOutButton } from '../components/ui'
 
 const STEP_NAMES = ['Outlet', 'Activity', 'Investment', 'Payment receipt', 'Engagement photo']
 
@@ -29,7 +29,6 @@ export default function Home() {
   const [loc, setLoc] = useState({ fix: null, error: null })
   const [now, setNow] = useState(Date.now())
   const [log, setLog] = useState([])
-  const [retrying, setRetrying] = useState(false)
 
   const reloadLog = () => getLog(user.id).then(setLog)
 
@@ -115,7 +114,6 @@ export default function Home() {
 
   const today = useMemo(() => log.filter((v) => new Date(v.finishedAt).getTime() >= dayStart()).sort((a, b) => (a.finishedAt < b.finishedAt ? 1 : -1)), [log])
   const locOff = !!loc.error && !loc.fix
-  const blocked = loc.error?.code === 1
 
   return (
     <main className="min-h-full flex flex-col safe-bottom bg-[#fbfaf7]">
@@ -318,16 +316,6 @@ export default function Home() {
 
       <Pattern className="opacity-50 px-8 pb-2 anim-fade" />
 
-      {blocked && (
-        <LocationBlocked
-          busy={retrying}
-          onRetry={async () => {
-            setRetrying(true)
-            await getFix().catch(() => {})
-            setRetrying(false)
-          }}
-        />
-      )}
     </main>
   )
 }

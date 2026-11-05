@@ -43,5 +43,6 @@ export const MANAGER_REFRESH_MS = 60 * 1000
 // Two location points further apart than this speed get flagged as a jump
 export const JUMP_KMH = 150
 
-// Lock the app when developer tools are attached. Off while running `npm run dev`.
-export const LOCK_DEVTOOLS = !import.meta.env.DEV
+// Strict mode: only a warning page while developer tools are open (src/guard.js).
+// Off while running `npm run dev` and in demo builds, which are tested by a program.
+export const LOCK_DEVTOOLS = !import.meta.env.DEV && !DEMO

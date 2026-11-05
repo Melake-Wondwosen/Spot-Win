@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { getFix } from '../location'
 import logo from '../assets/logo.png'
 import pattern from '../assets/pattern.png'
 import face from '../assets/face.png'
@@ -258,45 +257,6 @@ export function Avatar({ name, className = 'w-10 h-10 text-xs sm:w-11 sm:h-11 sm
       <span className={`w-full h-full rounded-full flex items-center justify-center font-bold tracking-wide ${dark ? 'bg-ink text-gold' : 'bg-white text-ink'}`}>{initials(name)}</span>
     </span>
   )
-}
-
-// Full-screen help when the phone has refused location to this site
-export function LocationBlocked({ onRetry, busy }) {
-  const ios = /iPhone|iPad/.test(navigator.userAgent)
-  return (
-    <div className="anim-fade fixed inset-0 z-[3000] bg-ink text-paper flex flex-col items-center justify-center px-7 text-center safe-top safe-bottom">
-      <span className="relative w-20 h-20 rounded-full gold-gradient text-ink flex items-center justify-center anim-pop">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 21s-7-6.2-7-12a7 7 0 1 1 14 0c0 5.8-7 12-7 12z" />
-          <circle cx="12" cy="9" r="2.5" />
-        </svg>
-      </span>
-      <h1 className="font-serif text-2xl mt-6 anim-rise">Turn on location</h1>
-      <p className="text-paper/70 mt-2 max-w-sm anim-rise">Spot Win records where each visit happens, so it can't work with location off.</p>
-      <ol className="mt-6 max-w-sm w-full text-left space-y-2.5 text-sm stagger">
-        {(ios
-          ? ['Open Settings > Privacy & Security > Location Services and turn it on.', 'Scroll to your browser (Safari or Chrome) and choose While Using the App.', 'Come back here and press Try again.']
-          : ['Pull down from the top of the screen and turn on Location.', 'Tap the lock or settings icon next to the web address, open Permissions, and set Location to Allow.', 'Come back here and press Try again.']
-        ).map((t, i) => (
-          <li key={i} style={{ '--i': i }} className="flex gap-3 rounded-2xl bg-paper/[0.06] border border-paper/10 px-4 py-3">
-            <b className="text-gold font-serif text-lg leading-none mt-0.5">{i + 1}</b>
-            <span className="text-paper/85">{t}</span>
-          </li>
-        ))}
-      </ol>
-      <button type="button" onClick={onRetry} disabled={busy} className="glass-button max-w-sm mt-7">
-        {busy ? <Spinner /> : 'Try again'}
-      </button>
-    </div>
-  )
-}
-
-export async function retryLocation() {
-  try {
-    return await getFix()
-  } catch (err) {
-    return err
-  }
 }
 
 export function Toast({ toast }) {

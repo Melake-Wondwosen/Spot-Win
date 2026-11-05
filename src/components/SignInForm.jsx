@@ -3,7 +3,7 @@ import { changePassword, keepPassword, login } from '../api'
 import { getFix, locationMessage } from '../location'
 import { getUser, setUser } from '../storage'
 import { reportApp } from '../install'
-import { LocationBlocked, Spinner } from './ui'
+import { Spinner } from './ui'
 
 // The sign-in form, styled as frosted glass for the dark sign-in screen.
 // `onWatch` reports typing to the sign-in logo: (field, value, { username, password })
@@ -26,8 +26,6 @@ export default function SignInForm({ onDone, onWatch, onStatus, onStep, submitLa
   const [shake, setShake] = useState(0)
   // Location status under the button: '' | finding | found | none
   const [loc, setLoc] = useState('')
-  const [blocked, setBlocked] = useState(false)
-  const [retrying, setRetrying] = useState(false)
 
   async function submit(e) {
     e.preventDefault()
@@ -66,10 +64,8 @@ export default function SignInForm({ onDone, onWatch, onStatus, onStep, submitLa
         user = await login(username, password, fix)
       } catch (err) {
         if (!/location is required/i.test(err.message)) throw err
-        if (fixError?.code === 1) {
-          setBlocked(true)
-          throw err
-        }
+        // Refused location: the app-wide warning page takes over
+        if (fixError?.code === 1) throw err
         setBusy('Getting your location…')
         fix = await getLocation(25000)
         if (!fix) {
@@ -196,24 +192,6 @@ export default function SignInForm({ onDone, onWatch, onStatus, onStep, submitLa
       </p>
 
     </form>
-    {blocked && (
-      <LocationBlocked
-        busy={retrying}
-        onRetry={async () => {
-          setRetrying(true)
-          try {
-            await getFix()
-            setBlocked(false)
-            setError('')
-            setLoc('found')
-          } catch {
-            // still blocked
-          } finally {
-            setRetrying(false)
-          }
-        }}
-      />
-    )}
     </>
   )
 }
