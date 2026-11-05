@@ -47,6 +47,8 @@ ASMs and RTMs also record visits: the Record a visit button on their team view o
 
 ASMs, RTMs and managers get two views: Live (who is online, map, latest visits) and Spending (totals and visits per day, with drill-down: tap a division to see its agents, an agent to see its sales people, a sales person to see their visits, and a visit to see its photos and details; a trail at the top goes back up, and Export Excel exports whatever is on screen), both limited to their agent or division.
 
+Demo accounts (SP01, ASM01 and RTM01 by default) can still sign in, but their visits, location, alerts and photos are left out of every view, total and Excel export. Change the list under Admin > Settings > Demo accounts.
+
 ## How a visit is saved
 
 1. The phone keeps the visit and both photos in IndexedDB after every answer, so a reload or a flat battery loses nothing.

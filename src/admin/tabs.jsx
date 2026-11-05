@@ -122,6 +122,7 @@ export function UsersTab({ data, reload, say }) {
                 <Chip tone={u.role === 'admin' ? 'dark' : u.role === 'manager' || u.role === 'asm' || u.role === 'rtm' ? 'gold' : 'plain'}>{ROLE_LABEL[u.role]}</Chip>
                 {!u.active && <Chip tone="red">Blocked</Chip>}
                 {u.active && u.passwordSet === false && <Chip>Temp password</Chip>}
+                {u.demo && <Chip tone="dark">Demo</Chip>}
               </span>
             </button>
           </li>
@@ -695,6 +696,7 @@ export function MessagesTab({ data, reload, say }) {
 export function SettingsTab({ data, reload, say }) {
   const start = { ...DEFAULT_SETTINGS, ...(data.settings || {}) }
   const [f, setF] = useState({ birrLimit: String(start.birrLimit), crateLimit: String(start.crateLimit), distanceLimitM: String(start.distanceLimitM) })
+  const [demo, setDemo] = useState(String(data.settings?.testUsers ?? 'SP01, ASM01, RTM01'))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const put = (k) => (e) => setF({ ...f, [k]: e.target.value.replace(/[^\d]/g, '') })
@@ -704,7 +706,7 @@ export function SettingsTab({ data, reload, say }) {
     setBusy(true)
     setError('')
     try {
-      await saveSettings({ birrLimit: Number(f.birrLimit), crateLimit: Number(f.crateLimit), distanceLimitM: Number(f.distanceLimitM) })
+      await saveSettings({ birrLimit: Number(f.birrLimit), crateLimit: Number(f.crateLimit), distanceLimitM: Number(f.distanceLimitM), testUsers: demo })
       await reload()
       say('Settings saved')
     } catch (err) {
@@ -729,6 +731,9 @@ export function SettingsTab({ data, reload, say }) {
           </span>
         </Field>
       ))}
+      <Field label="Demo accounts" hint="User IDs, separated by commas. These accounts can still sign in, but their visits, location and alerts are left out of every view, total and Excel export.">
+        <input className={`${inputClass} uppercase tracking-wide`} value={demo} onChange={(e) => setDemo(e.target.value.toUpperCase())} placeholder="SP01, ASM01, RTM01" />
+      </Field>
       {error && <Notice>{error}</Notice>}
       <Button variant="gold" disabled={busy || !valid} onClick={save}>
         {busy ? <Spinner /> : 'Save settings'}

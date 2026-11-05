@@ -85,6 +85,9 @@ var NATIONAL_TAB = 'National Outlet';
 
 var ACTIVITIES = ['Bar Staff Engagement', 'Waitress Engagement', 'Consumer Onspot Engagement', 'Outlet Owner Engagement'];
 var DEFAULT_SETTINGS = { birrLimit: 20000, crateLimit: 200, distanceLimitM: 100 };
+// Demo accounts: they can still sign in, but nothing they do shows in any
+// view, total, alert or Excel export. Change the list in the Settings tab (testUsers).
+var DEFAULT_TEST_USERS = 'SP01, ASM01, RTM01';
 var SHORT_VISIT_MS = 60 * 1000;
 var EXPORT_PAGE = 2000;
 var MAX_PHOTO_BYTES = 3 * 1024 * 1024;
@@ -374,17 +377,27 @@ function divisionList_() {
 
 function readSettings_() {
   var cache = CacheService.getScriptCache();
-  var hit = cache.get('settings_v1');
+  var hit = cache.get('settings_v2');
   if (hit) return JSON.parse(hit);
   var s = {};
   for (var k in DEFAULT_SETTINGS) s[k] = DEFAULT_SETTINGS[k];
+  s.testUsers = DEFAULT_TEST_USERS;
   readRows_('Settings', 0).forEach(function (r) {
     var key = String(r.key).trim();
     if (key in DEFAULT_SETTINGS && r.value !== '' && !isNaN(Number(r.value))) s[key] = Number(r.value);
+    if (key === 'testUsers') s.testUsers = String(r.value || '');
   });
-  cache.put('settings_v1', JSON.stringify(s), 600);
+  cache.put('settings_v2', JSON.stringify(s), 600);
   return s;
 }
+
+// IDs of demo accounts, upper-cased. Their data never reaches views or exports.
+function testIds_() {
+  var out = {};
+  String(readSettings_().testUsers || '').split(/[,;\s]+/).forEach(function (x) { if (x.trim()) out[x.trim().toUpperCase()] = true; });
+  return out;
+}
+function real_(test) { return function (r) { return !test[String(r.userId || '').trim().toUpperCase()]; }; }
 
 function saveSettings_(b) {
   requireUser_(b.token, ['admin']);
@@ -395,8 +408,12 @@ function saveSettings_(b) {
       if (s[k] == null || isNaN(Number(s[k])) || Number(s[k]) <= 0) return;
       if (!updateWhere_(sheet, 'key', k, { value: Number(s[k]) })) appendByHeader_(sheet, { key: k, value: Number(s[k]) });
     });
+    if (s.testUsers != null) {
+      var list = String(s.testUsers).split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(String).join(', ');
+      if (!updateWhere_(sheet, 'key', 'testUsers', { value: list })) appendByHeader_(sheet, { key: 'testUsers', value: list });
+    }
   });
-  CacheService.getScriptCache().remove('settings_v1');
+  CacheService.getScriptCache().remove('settings_v2');
   return { settings: readSettings_() };
 }
 
@@ -573,8 +590,10 @@ function notesFor_(u) {
   if (role !== 'sales') {
     var fSince = new Date(Date.now() - 14 * 864e5).toISOString();
     var scope = role !== 'admin' ? scopeFor_(findUser_(u.id) || u) : null;
+    var test = testIds_();
     readRows_('Flags', 300).forEach(function (f) {
       if (String(f.status) === 'resolved' || String(f.date) < fSince) return;
+      if (test[String(f.userId || '').trim().toUpperCase()]) return;
       if (scope && !scope.ids[String(f.userId)]) return;
       notes.push({ id: 'flag:' + f.id, date: String(f.date), kind: 'flag', title: String(f.userName) + ': ' + (FLAG_TEXT[f.type] || f.type), body: String(f.detail || '') });
     });
@@ -1123,11 +1142,12 @@ function managerData_(b) {
   var scope = scopeFor_(me);
   var from = b.from ? String(b.from) : '';
   var to = b.to ? String(b.to) : '';
-  var visits = visitsBetween_(from, to).filter(function (v) { return visitInScope_(scope, v); })
+  var test = testIds_();
+  var visits = visitsBetween_(from, to).filter(real_(test)).filter(function (v) { return visitInScope_(scope, v); })
     .map(function (v) { return pickFields_(v, VISIT_LIST_FIELDS); });
   if (b.lite) return { serverTime: now_(), visits: visits };
 
-  var mine = function (id) { return !scope || scope.ids[String(id)]; };
+  var mine = function (id) { return !test[String(id || '').trim().toUpperCase()] && (!scope || scope.ids[String(id)]); };
   var trackFrom = b.trackFrom ? String(b.trackFrom) : new Date(Date.now() - 864e5).toISOString();
   var flagFrom = from && from < trackFrom ? from : trackFrom;
   return {
@@ -1178,7 +1198,8 @@ function exportVisits_(b) {
   var f = b.filters || {};
   var page = Math.max(0, Number(b.page) || 0);
   var q = String(f.q || '').trim().toLowerCase();
-  var rows = visitsBetween_(f.from ? String(f.from) : '', f.to ? String(f.to) : '').filter(function (v) {
+  var test = testIds_();
+  var rows = visitsBetween_(f.from ? String(f.from) : '', f.to ? String(f.to) : '').filter(real_(test)).filter(function (v) {
     if (!visitInScope_(scope, v)) return false;
     if (f.division && !sameDiv_(v.division, f.division)) return false;
     if (f.userId && String(v.userId) !== String(f.userId)) return false;
@@ -1220,12 +1241,12 @@ function adminData_(b) {
   readRows_('Presence', 0).forEach(function (p) { presence[p.userId] = String(p.lastSeen); });
   return {
     serverTime: now_(),
-    users: readUsers_().map(function (u) { var p = publicUser_(u); p.lastSeen = presence[u.id] || ''; return p; }),
+    users: readUsers_().map(function (u) { var p = publicUser_(u); p.lastSeen = presence[u.id] || ''; p.demo = !!testIds_()[String(u.id).toUpperCase()]; return p; }),
     outlets: readRows_('Outlets', 0).map(function (o) {
       return { key: o.key, outletId: normId_(o.outletId), outletName: String(o.outletName).replace(/^'/, ''), status: o.status, requestedBy: o.requestedBy,
         requestedByName: o.requestedByName, lat: o.lat, lng: o.lng, createdAt: o.createdAt, updatedAt: o.updatedAt };
     }),
-    flags: readRows_('Flags', 1000).filter(function (f) { return String(f.date) >= since; }),
+    flags: readRows_('Flags', 1000).filter(function (f) { return String(f.date) >= since; }).filter(real_(testIds_())),
     notices: readRows_('Notifications', 200).filter(function (n) { return n.kind === 'notice'; }),
     settings: readSettings_(),
     divisions: divisionList_(),
