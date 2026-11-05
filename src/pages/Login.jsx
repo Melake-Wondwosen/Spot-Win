@@ -21,10 +21,11 @@ export default function Login() {
   // Pressing Sign in: she looks at you; a failed sign-in puzzles her again
   function status(st) {
     clearTimeout(idle.current)
-    setFace((f) => ({ ...f, mood: st === 'signing' ? 'idle' : 'confused' }))
+    setFace((f) => ({ ...f, mood: st === 'failed' ? 'confused' : 'idle' }))
   }
 
-  if (current?.token) return <Navigate to={current.mustChange ? '/password' : homeFor(current)} replace />
+  const [step, setStep] = useState(current?.token && current.mustChange ? 'password' : 'signin')
+  if (current?.token && !current.mustChange) return <Navigate to={homeFor(current)} replace />
 
   return (
     <main className="login-glass min-h-full flex flex-col safe-top safe-bottom relative overflow-hidden bg-ink text-paper">
@@ -44,10 +45,14 @@ export default function Login() {
         </div>
         <MovingPattern className="mt-5 -mx-6" style={{ '--i': 1 }} />
         <div style={{ '--i': 2 }} className="text-center mt-5">
-          <p className="text-paper/60 text-[15px]">Sign in to record your outlet visits</p>
+          {step === 'password' ? (
+            <p key="pw" className="anim-fade text-paper/70 text-[15px]">You can set your own password now, or skip and keep the one you were given.</p>
+          ) : (
+            <p className="text-paper/60 text-[15px]">Sign in to record your outlet visits</p>
+          )}
         </div>
         <div className="mt-7" style={{ '--i': 3 }}>
-          <SignInForm onWatch={watch} onStatus={status} onDone={(u) => navigate(u.mustChange ? '/password' : homeFor(u), { replace: true })} />
+          <SignInForm onWatch={watch} onStatus={status} onStep={setStep} onDone={(u) => navigate(homeFor(u), { replace: true })} />
         </div>
       </div>
     </main>

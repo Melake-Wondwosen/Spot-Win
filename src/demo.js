@@ -1,6 +1,7 @@
 // Made-up data for demo builds only (vite --mode demo). Never shipped.
 import { ACTIVITIES, DEFAULT_SETTINGS } from './config'
 import { dayStart } from './time'
+import { getUser } from './storage'
 
 let seed = 11
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
@@ -164,8 +165,10 @@ export async function demoCall(action, p) {
     }
     case 'changePassword':
       if (!p.keep && String(p.newPassword).length < 6) throw new Error('Use at least 6 characters.')
-      passwordSet.add(String(me?.username || '').toLowerCase())
-      passwordSet.add(String(me?.name || '').toLowerCase())
+      // The demo forgets everything on reload, so use the stored session
+      const who = me || getUser() || {}
+      passwordSet.add(String(who.username || '').toLowerCase())
+      passwordSet.add(String(who.name || '').toLowerCase())
       return {}
     case 'ping':
       return { notes: notesFor('sales'), packVersion: 'demo', settings: d.settings }
