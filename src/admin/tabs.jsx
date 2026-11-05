@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { importOutlets, resolveFlag, saveOutlet, saveSettings, saveUser, sendNotice } from '../api'
-import { getUser } from '../storage'
+import { getUser, setSettings } from '../storage'
 import { Button, Field, Notice, Segmented, Sheet, Spinner, inputClass, initials } from '../components/ui'
 import { DEFAULT_SETTINGS } from '../config'
 import { flagLabel } from '../manager/calc'
@@ -740,5 +740,121 @@ export function SettingsTab({ data, reload, say }) {
       </Button>
       <p className="text-xs text-ink/50">Phones pick up new limits on their next sync or location report.</p>
     </section>
+  )
+}
+
+/* ---------- app installs ---------- */
+
+const APP_STATE = {
+  installed: { label: 'Installed', tone: 'gold' },
+  browser: { label: 'Browser only', tone: 'plain' },
+  never: { label: 'Not opened yet', tone: 'plain' },
+}
+
+// Who has Spot Win installed, and the switch for the download card.
+// Status comes from the app itself each time someone opens it.
+export function AppTab({ data, reload, say }) {
+  const [show, setShow] = useState('missing')
+  const [q, setQ] = useState('')
+  const [busy, setBusy] = useState(false)
+  const cardOn = (data.settings?.appCard || 'on') !== 'off'
+
+  const installs = useMemo(() => new Map((data.installs || []).map((r) => [String(r.userId), r])), [data.installs])
+  const people = useMemo(
+    () =>
+      data.users
+        .filter((u) => u.active && !u.demo)
+        .map((u) => {
+          const r = installs.get(u.id)
+          const state = !r ? 'never' : String(r.status) === 'installed' ? 'installed' : 'browser'
+          return { ...u, state, installedAt: r?.installedAt || '', lastOpenAt: r?.lastOpenAt || '', lastMode: r?.lastMode || '' }
+        }),
+    [data.users, installs],
+  )
+  const done = people.filter((p) => p.state === 'installed')
+  const missing = people.filter((p) => p.state !== 'installed')
+  const pct = people.length ? Math.round((done.length / people.length) * 100) : 0
+  const list = (show === 'missing' ? missing : show === 'installed' ? done : people)
+    .filter((p) => !q || [p.name, p.username, p.agent, p.region, ROLE_LABEL[p.role]].some((v) => norm(v).includes(norm(q))))
+    .sort((a, b) => a.state.localeCompare(b.state) || a.name.localeCompare(b.name))
+
+  async function toggleCard(on) {
+    setBusy(true)
+    try {
+      const r = await saveSettings({ appCard: on ? 'on' : 'off' })
+      if (r?.settings) setSettings(r.settings)
+      await reload()
+      say(on ? 'Download card turned on for everyone' : 'Download card turned off for everyone')
+    } catch (err) {
+      say(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl bg-ink text-paper p-4 sm:p-5 relative overflow-hidden">
+        <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 w-48 h-48 rounded-full bg-gold/25 blur-3xl" />
+        <p className="relative text-[11px] uppercase tracking-[0.14em] text-gold">Spot Win app</p>
+        <p className="relative font-serif text-3xl mt-1 tabular">
+          {done.length} <span className="text-paper/50 text-xl">of {people.length} installed</span>
+        </p>
+        <div className="relative mt-3 h-2.5 rounded-full bg-paper/15 overflow-hidden">
+          <span className="grow-x block h-full rounded-full gold-gradient" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="relative text-xs text-paper/55 mt-2 tabular">
+          {pct}% · {people.filter((p) => p.state === 'browser').length} use it in a browser · {people.filter((p) => p.state === 'never').length} not opened yet
+        </p>
+      </section>
+
+      <section className="rounded-2xl bg-white border border-ink/10 p-4 flex items-start gap-4">
+        <span className="flex-1 min-w-0">
+          <span className="block font-semibold">Download card on every screen</span>
+          <span className="block text-xs text-ink/55 mt-1">
+            The gold "Get the Spot Win app" card at the top of each screen, for everyone. Turn it off when your team has the app. The small download icon in the header and the button on the sign-in page stay, so new people can still install it.
+          </span>
+        </span>
+        {busy ? <Spinner /> : <Toggle on={cardOn} onChange={toggleCard} />}
+      </section>
+
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        <Segmented
+          className="sm:w-[420px]"
+          value={show}
+          onChange={setShow}
+          options={[
+            { value: 'missing', label: `Not installed (${missing.length})` },
+            { value: 'installed', label: `Installed (${done.length})` },
+            { value: 'all', label: 'All' },
+          ]}
+        />
+        <Search value={q} onChange={setQ} placeholder="Search name, agent or division" />
+      </div>
+
+      {!list.length ? (
+        <Empty>{show === 'missing' && !q ? 'Everyone has the app installed' : 'Nobody matches'}</Empty>
+      ) : (
+        <ul className="rounded-2xl bg-white border border-ink/10 divide-y divide-ink/10 overflow-hidden stagger">
+          {list.map((p, i) => (
+            <li key={p.id} style={{ '--i': Math.min(i, 12) }} className="row-hover px-4 py-3 flex items-center gap-3">
+              <span className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${p.state === 'installed' ? 'gold-gradient text-ink' : 'bg-mist text-ink/60'}`}>{initials(p.name)}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-semibold truncate">{p.name}</span>
+                <span className="block text-xs text-ink/55 truncate">
+                  {ROLE_LABEL[p.role]}
+                  {p.agent ? ` · ${p.agent}` : p.region ? ` · ${p.region}` : ''}
+                </span>
+              </span>
+              <span className="flex flex-col items-end gap-1 shrink-0">
+                <Chip tone={APP_STATE[p.state].tone}>{APP_STATE[p.state].label}</Chip>
+                {p.lastOpenAt && <span className="text-[11px] text-ink/45 tabular">Last opened {when(p.lastOpenAt)}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs text-ink/45">Someone counts as installed once they open Spot Win from its home-screen icon. The list updates each time people open the app.</p>
+    </div>
   )
 }

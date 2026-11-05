@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { changePassword, keepPassword, login } from '../api'
 import { getFix, locationMessage } from '../location'
 import { getUser, setUser } from '../storage'
+import { reportApp } from '../install'
 import { LocationBlocked, Spinner } from './ui'
 
 // The sign-in form, styled as frosted glass for the dark sign-in screen.
@@ -79,6 +80,7 @@ export default function SignInForm({ onDone, onWatch, onStatus, onStep, submitLa
         user = await login(username, password, fix)
       }
       setUser(user)
+      reportApp()
       setBusy('')
       if (user.mustChange) {
         onStatus?.('idle')

@@ -17,7 +17,8 @@ export const ACTIVITIES = [
 ]
 
 // Defaults until the server sends the Settings tab
-export const DEFAULT_SETTINGS = { birrLimit: 20000, crateLimit: 200, distanceLimitM: 100 }
+// appCard: the gold "Get the Spot Win app" card on every screen, 'on' or 'off' (set by the admin)
+export const DEFAULT_SETTINGS = { birrLimit: 20000, crateLimit: 200, distanceLimitM: 100, appCard: 'on' }
 
 export const STEP_COUNT = 5
 export const RETURN_HOME_MS = 1200

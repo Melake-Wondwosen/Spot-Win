@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { onInstall, promptInstall } from '../install'
+import { getSettings, onSettings } from '../storage'
 import { Button, Sheet } from './ui'
 
 const DownloadIcon = ({ size = 18 }) => (
@@ -29,7 +30,12 @@ export default function InstallButton({ variant = 'icon' }) {
   const [help, setHelp] = useState(false)
   const [copied, setCopied] = useState(false)
   const [linkSheet, setLinkSheet] = useState(false)
+  const [cardOn, setCardOn] = useState(() => getSettings().appCard !== 'off')
   useEffect(() => onInstall(setSt), [])
+  useEffect(() => onSettings((s) => setCardOn(s.appCard !== 'off')), [])
+
+  // The admin can turn the card off for everyone (Admin > App)
+  if (variant === 'banner' && !cardOn) return null
 
   const link = `${location.origin}/login`
   const sharing = st.installed

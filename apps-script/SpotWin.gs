@@ -60,7 +60,8 @@ var HANDLERS = {
   importOutlets: importOutlets_,
   sendNotice: sendNotice_,
   voidVisit: voidVisit_,
-  saveSettings: saveSettings_
+  saveSettings: saveSettings_,
+  appStatus: appStatus_
 };
 
 function route_(body) {
@@ -109,7 +110,9 @@ var HEADERS = {
   Outlets: ['key', 'outletId', 'outletName', 'status', 'requestedBy', 'requestedByName', 'lat', 'lng', 'createdAt', 'updatedAt'],
   Notifications: ['id', 'date', 'fromId', 'fromName', 'target', 'kind', 'title', 'body'],
   Exports: ['date', 'userId', 'userName', 'role', 'filters', 'rowCount'],
-  Settings: ['key', 'value']
+  Settings: ['key', 'value'],
+  // One row per user: whether they have Spot Win installed and how they last opened it
+  Installs: ['userId', 'userName', 'role', 'status', 'installedAt', 'lastOpenAt', 'lastMode', 'device']
 };
 
 // Columns kept as text, so "0012" keeps its zeros and ISO dates stay as written
@@ -118,7 +121,7 @@ var TEXT_COLS = ['id', 'username', 'password', 'name', 'staffId', 'role', 'regio
   'receiptPhotoId', 'receiptUrl', 'receiptSource', 'receiptHash', 'receiptAt', 'engagementPhotoId', 'engagementUrl', 'engagementHash', 'engagementAt',
   'startedAt', 'device', 'appVersion', 'uploadedAt', 'voidReason', 'voidBy', 'voidAt', 'visitId', 'kind', 'fileId', 'url', 'hash', 'source', 'takenAt',
   'lastSeen', 'state', 'locTime', 'type', 'detail', 'resolvedBy', 'resolvedAt', 'key', 'requestedBy', 'requestedByName', 'createdAt', 'updatedAt',
-  'fromId', 'fromName', 'target', 'title', 'body', 'filters', 'thumb'];
+  'fromId', 'fromName', 'target', 'title', 'body', 'filters', 'thumb', 'installedAt', 'lastOpenAt', 'lastMode'];
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -377,17 +380,19 @@ function divisionList_() {
 
 function readSettings_() {
   var cache = CacheService.getScriptCache();
-  var hit = cache.get('settings_v2');
+  var hit = cache.get('settings_v3');
   if (hit) return JSON.parse(hit);
   var s = {};
   for (var k in DEFAULT_SETTINGS) s[k] = DEFAULT_SETTINGS[k];
   s.testUsers = DEFAULT_TEST_USERS;
+  s.appCard = 'on';
   readRows_('Settings', 0).forEach(function (r) {
     var key = String(r.key).trim();
     if (key in DEFAULT_SETTINGS && r.value !== '' && !isNaN(Number(r.value))) s[key] = Number(r.value);
     if (key === 'testUsers') s.testUsers = String(r.value || '');
+    if (key === 'appCard') s.appCard = String(r.value).trim().toLowerCase() === 'off' ? 'off' : 'on';
   });
-  cache.put('settings_v2', JSON.stringify(s), 600);
+  cache.put('settings_v3', JSON.stringify(s), 600);
   return s;
 }
 
@@ -408,12 +413,16 @@ function saveSettings_(b) {
       if (s[k] == null || isNaN(Number(s[k])) || Number(s[k]) <= 0) return;
       if (!updateWhere_(sheet, 'key', k, { value: Number(s[k]) })) appendByHeader_(sheet, { key: k, value: Number(s[k]) });
     });
+    // The gold "Get the Spot Win app" card on every screen: on or off for everyone
+    if (s.appCard === 'on' || s.appCard === 'off') {
+      if (!updateWhere_(sheet, 'key', 'appCard', { value: s.appCard })) appendByHeader_(sheet, { key: 'appCard', value: s.appCard });
+    }
     if (s.testUsers != null) {
       var list = String(s.testUsers).split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(String).join(', ');
       if (!updateWhere_(sheet, 'key', 'testUsers', { value: list })) appendByHeader_(sheet, { key: 'testUsers', value: list });
     }
   });
-  CacheService.getScriptCache().remove('settings_v2');
+  CacheService.getScriptCache().remove('settings_v3');
   return { settings: readSettings_() };
 }
 
@@ -554,6 +563,38 @@ function appendTrack_(u, loc, activity) {
     date: now_(), userId: u.id, userName: u.name, lat: num_(loc.lat), lng: num_(loc.lng),
     accuracy: num_(loc.accuracy), activity: String(activity || '').slice(0, 200)
   });
+}
+
+/* ================= app installs ================= */
+// The app reports how it was opened each time it starts: from its home-screen
+// icon ("installed") or in a browser tab. Once someone has opened it as an
+// installed app they count as installed. Returns the settings, so phones pick
+// up the admin's download-card switch.
+function appStatus_(b) {
+  var t = readToken_(b.token);
+  if (!t) fail_('Session not valid. Sign in again.');
+  var u = findUser_(t.id);
+  if (!u || !u.active) fail_('This account is no longer active.');
+  var inApp = b.mode === 'installed' || b.installed === true;
+  tryLock_(3000, function () {
+    var sheet = sheet_('Installs');
+    var h = headers_(sheet);
+    var r = findRow_(sheet, 'userId', u.id);
+    var row = { userId: u.id, userName: u.name, role: u.role, lastOpenAt: now_(), lastMode: inApp ? 'installed' : 'browser', device: String(b.device || '').slice(0, 120) };
+    if (r) {
+      var was = String(sheet.getRange(r, h.indexOf('status') + 1).getValue() || '');
+      if (inApp && was !== 'installed') {
+        row.status = 'installed';
+        row.installedAt = now_();
+      }
+      updateWhere_(sheet, 'userId', u.id, row);
+    } else {
+      row.status = inApp ? 'installed' : 'browser';
+      if (inApp) row.installedAt = now_();
+      appendByHeader_(sheet, row);
+    }
+  });
+  return { settings: readSettings_() };
 }
 
 /* ================= alerts and notifications ================= */
@@ -1250,6 +1291,7 @@ function adminData_(b) {
     notices: readRows_('Notifications', 200).filter(function (n) { return n.kind === 'notice'; }),
     settings: readSettings_(),
     divisions: divisionList_(),
+    installs: readRows_('Installs', 0),
     agents: agentList_(),
     notes: notesFor_(me)
   };

@@ -166,6 +166,8 @@ export async function demoCall(action, p) {
       const first = !passwordSet.has(p.username.trim().toLowerCase())
       return { user: { ...me, token: 'demo-' + role, mustChange: first }, settings: d.settings }
     }
+    case 'appStatus':
+      return { settings: d.settings }
     case 'changePassword':
       if (!p.keep && String(p.newPassword).length < 6) throw new Error('Use at least 6 characters.')
       // The demo forgets everything on reload, so use the stored session
@@ -252,7 +254,7 @@ export async function demoCall(action, p) {
     case 'adminData':
       return {
         serverTime: new Date().toISOString(), users: d.users.map((u) => ({ ...u, lastSeen: d.presence.find((x) => x.userId === u.id)?.lastSeen || '' })),
-        outlets: d.outletsTab, flags: d.flags, notices: d.notices, settings: d.settings, divisions: ['North Addis', 'South Addis'], agents: GEO.map((g) => [g.division, g.agent]), notes: notesFor('admin'),
+        outlets: d.outletsTab, flags: d.flags, notices: d.notices, settings: d.settings, installs: d.users.slice(0, 6).map((u, i) => ({ userId: u.id, userName: u.name, status: i < 4 ? 'installed' : 'browser', installedAt: i < 4 ? new Date(Date.now() - i * 864e5).toISOString() : '', lastOpenAt: new Date(Date.now() - i * 3.6e6).toISOString(), lastMode: i < 4 ? 'installed' : 'browser' })), divisions: ['North Addis', 'South Addis'], agents: GEO.map((g) => [g.division, g.agent]), notes: notesFor('admin'),
       }
     case 'saveUser': {
       const u = p.user
@@ -285,7 +287,7 @@ export async function demoCall(action, p) {
     }
     case 'saveSettings':
       Object.assign(d.settings, p.settings)
-      return {}
+      return { settings: d.settings }
   }
   throw new Error('Not available in the demo.')
 }

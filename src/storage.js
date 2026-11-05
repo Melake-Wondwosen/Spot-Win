@@ -44,11 +44,19 @@ export const clearUser = () => remove(USER_KEY)
 
 /* ---------- settings from the server ---------- */
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(SETTINGS_KEY, {}) })
+const settingSubs = new Set()
+export function onSettings(fn) {
+  settingSubs.add(fn)
+  return () => settingSubs.delete(fn)
+}
 export function setSettings(s) {
   if (!s || typeof s !== 'object') return
   const clean = {}
   for (const k of Object.keys(DEFAULT_SETTINGS)) if (s[k] !== '' && s[k] != null && !isNaN(Number(s[k]))) clean[k] = Number(s[k])
-  write(SETTINGS_KEY, clean)
+  if (s.appCard === 'on' || s.appCard === 'off') clean.appCard = s.appCard
+  write(SETTINGS_KEY, { ...read(SETTINGS_KEY, {}), ...clean })
+  const now = getSettings()
+  settingSubs.forEach((fn) => fn(now))
 }
 
 /* ---------- sync status ---------- */

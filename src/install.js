@@ -3,6 +3,9 @@
 // `beforeinstallprompt` when the app qualifies; we keep that event so a button
 // can open the install dialog later. iPhones never fire it, so they get
 // written steps instead.
+import { appStatus, deviceLabel } from './api'
+import { getUser, setSettings } from './storage'
+
 let deferred = null
 let installed = false
 const subs = new Set()
@@ -45,5 +48,15 @@ export function startInstallWatch() {
     installed = true
     deferred = null
     emit()
+    reportApp({ installed: true })
   })
+}
+
+// Tells the server how the app was opened (installed or in a browser), for
+// the admin's App tab, and picks up the admin's download-card switch.
+export function reportApp(extra = {}) {
+  if (!getUser()?.token) return
+  appStatus({ mode: isStandalone() ? 'installed' : 'browser', device: deviceLabel(), ...extra })
+    .then((d) => d?.settings && setSettings(d.settings))
+    .catch(() => {})
 }

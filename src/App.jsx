@@ -7,6 +7,7 @@ import { startPresence } from './presence'
 import { startWatch } from './location'
 import { homeFor } from './roles'
 import { loadOutlets, syncPack } from './outlets'
+import { reportApp } from './install'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import { Emblem, Spinner } from './components/ui'
@@ -60,6 +61,8 @@ function LockScreen() {
 export default function App() {
   const [locked, setLocked] = useState(isLocked)
   useEffect(() => onLock(setLocked), [])
+  // Once per app start
+  useEffect(() => reportApp(), [])
   if (locked) return <LockScreen />
 
   return (

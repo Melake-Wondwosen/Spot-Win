@@ -6,7 +6,7 @@ import { clearUser, getUser } from '../storage'
 import Bell from '../components/Bell'
 import InstallButton from '../components/InstallButton'
 import { Avatar, Notice, SignOutButton, Toast } from '../components/ui'
-import { FlagsTab, MessagesTab, OutletsTab, RequestsTab, SettingsTab, UsersTab } from './tabs'
+import { AppTab, FlagsTab, MessagesTab, OutletsTab, RequestsTab, SettingsTab, UsersTab } from './tabs'
 import Analysis from './Analysis'
 import VisitsTab from './VisitsTab'
 
@@ -14,6 +14,7 @@ const TABS = [
   { key: 'analysis', label: 'Analysis' },
   { key: 'visits', label: 'Visits' },
   { key: 'users', label: 'Users' },
+  { key: 'app', label: 'App' },
   { key: 'outlets', label: 'Outlets' },
   { key: 'requests', label: 'Requests' },
   { key: 'flags', label: 'Alerts' },
@@ -89,7 +90,7 @@ export default function Admin() {
             <SignOutButton onClick={signOut} />
           </div>
 
-          {/* Phones: one row of pills that swipes sideways. Tablets and up: all eight tabs in a row. */}
+          {/* Phones: one row of pills that swipes sideways. Tablets and up: all nine tabs in a row. */}
           <nav className="md:hidden -mx-4 px-4 mt-3 pb-3 flex gap-1.5 overflow-x-auto no-scrollbar snap-x">
             {TABS.map((t) => {
               const on = tab === t.key
@@ -109,7 +110,7 @@ export default function Admin() {
               )
             })}
           </nav>
-          <nav className="hidden md:grid mt-3 grid-cols-8">
+          <nav className="hidden md:grid mt-3 grid-cols-9">
             {TABS.map((t) => {
               const on = tab === t.key
               return (
@@ -138,7 +139,7 @@ export default function Admin() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
-        <div className="mb-4">
+        <div className="empty:hidden mb-4">
           <InstallButton variant="banner" />
         </div>
         {error && <Notice className="mb-4">{error}</Notice>}
@@ -148,6 +149,7 @@ export default function Admin() {
             {tab === 'analysis' && <Analysis divisions={data.divisions} role="admin" />}
             {tab === 'visits' && <VisitsTab {...props} />}
             {tab === 'users' && <UsersTab {...props} />}
+            {tab === 'app' && <AppTab {...props} />}
             {tab === 'outlets' && <OutletsTab {...props} />}
             {tab === 'requests' && <RequestsTab {...props} />}
             {tab === 'flags' && <FlagsTab {...props} />}

@@ -106,6 +106,7 @@ export const resolveFlag = (id) => authed('resolveFlag', { id })
 export const sendNotice = (target, title, body) => authed('sendNotice', { target, title, body })
 export const voidVisit = (id, reason) => authed('voidVisit', { id, reason })
 export const saveSettings = (settings) => authed('saveSettings', { settings })
+export const appStatus = (body) => authed('appStatus', body)
 
 // The token travels inside the record, so a queued visit is credited to the
 // user who recorded it even if someone else signs in before it uploads.

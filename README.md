@@ -49,6 +49,8 @@ ASMs, RTMs and managers get two views: Live (who is online, map, latest visits) 
 
 Demo accounts (SP01, ASM01 and RTM01 by default) can still sign in, but their visits, location, alerts and photos are left out of every view, total and Excel export. Change the list under Admin > Settings > Demo accounts.
 
+Admin > App shows who has Spot Win installed (opened from its home-screen icon), who only uses it in a browser, and who hasn't opened it yet, with a switch that turns the gold "Get the Spot Win app" card on or off for everyone. The app reports how it was opened each time it starts; the records are in the Installs tab.
+
 ## How a visit is saved
 
 1. The phone keeps the visit and both photos in IndexedDB after every answer, so a reload or a flat battery loses nothing.
