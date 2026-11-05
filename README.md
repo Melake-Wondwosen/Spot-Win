@@ -43,6 +43,8 @@ Users tab columns: id, username, password, name, staffId, role, region, agent, a
 
 The first time someone signs in with the password an admin gave them, the app offers to change it: they pick their own (at least 6 characters, no spaces, different from the one they were given) or press "Keep my current password". Either way they aren't asked again; the `passwordChanged` column records the date, or "kept" and the date. Setting a new password in the admin console clears that column, so they're asked again at their next sign-in.
 
+ASMs and RTMs also record visits: the Record a visit button on their team view opens the same five steps sales people use, and the Team button takes them back. Their visits count in their team's totals.
+
 ASMs, RTMs and managers get two views: Live (who is online, map, latest visits) and Spending (totals, spending by agent, territory, sales person or activity, visits per day, Excel export), both limited to their agent or division.
 
 ## How a visit is saved

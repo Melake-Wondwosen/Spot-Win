@@ -8,6 +8,7 @@ import Bell from '../components/Bell'
 import ExportButton from '../components/ExportButton'
 import Period from '../components/Period'
 import { clearNotesMemory, setServerNotes } from '../notes'
+import { stopPresence } from '../presence'
 import { ago, dateTime, dayStart, time } from '../time'
 import { Tile, usePeriod } from './shared'
 import MapView from './MapView'
@@ -72,6 +73,7 @@ export default function Manager() {
   const mapVisits = useMemo(() => visits.filter((v) => !isVoid(v)), [visits])
 
   function signOut() {
+    stopPresence('Signed out')
     clearNotesMemory()
     clearUser()
     navigate('/login', { replace: true })
@@ -92,6 +94,19 @@ export default function Manager() {
               <p className="text-[11px] uppercase tracking-[0.16em] text-gold truncate">{title}</p>
               <p className="font-serif text-lg truncate">{user.name}</p>
             </div>
+            {(user.role === 'asm' || user.role === 'rtm') && (
+              <Link
+                to="/"
+                className="btn-hover cta-shine shrink-0 hidden sm:inline-flex items-center gap-2 rounded-full gold-gradient text-ink h-10 px-4 text-sm font-bold"
+              >
+                <svg className="hop" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 21h18" />
+                  <path d="M5 21V8l7-5 7 5v13" />
+                  <path d="M10 21v-6h4v6" />
+                </svg>
+                <span>Record a visit</span>
+              </Link>
+            )}
             {user.role === 'admin' && (
               <Link to="/admin" className="btn-hover hidden sm:inline-flex items-center text-sm text-gold border border-gold/40 rounded-full px-4 h-10 hover:bg-gold hover:text-ink">
                 Admin console
@@ -100,6 +115,16 @@ export default function Manager() {
             <Bell />
             <SignOutButton onClick={signOut} />
           </div>
+          {(user.role === 'asm' || user.role === 'rtm') && (
+            <Link to="/" className="sm:hidden mt-4 flex items-center justify-center gap-2 rounded-2xl gold-gradient text-ink h-12 font-bold active:scale-[0.98]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 21h18" />
+                <path d="M5 21V8l7-5 7 5v13" />
+                <path d="M10 21v-6h4v6" />
+              </svg>
+              Record a visit
+            </Link>
+          )}
           <div className="mt-4 flex rounded-full bg-paper/10 p-1 w-fit">
             {VIEWS.map((v) => (
               <button
@@ -244,6 +269,7 @@ function TeamRow({ u, now, selected, onClick }) {
         <div className="flex items-center gap-2">
           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${u.online ? 'bg-gold live-dot' : u.seenToday ? 'bg-ink/45' : 'bg-ink/15'}`} />
           <span className="font-semibold truncate">{u.name}</span>
+          {(u.role === 'asm' || u.role === 'rtm') && <span className="text-[10px] font-bold tracking-wider rounded-full px-1.5 py-0.5 gold-gradient text-ink shrink-0">{u.role.toUpperCase()}</span>}
           <span className="ml-auto text-xs text-ink/55 shrink-0">{status}</span>
         </div>
         {u.activity && <p className="text-sm text-ink/70 mt-0.5 pl-[18px] truncate">{u.activity}</p>}

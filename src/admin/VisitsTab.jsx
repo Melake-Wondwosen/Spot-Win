@@ -39,7 +39,7 @@ export default function VisitsTab({ data: admin }) {
     return () => clearInterval(t)
   }, [load])
 
-  const users = useMemo(() => admin.users.filter((u) => u.role === 'sales').sort((a, b) => a.name.localeCompare(b.name)), [admin.users])
+  const users = useMemo(() => admin.users.filter((u) => ['sales', 'asm', 'rtm'].includes(u.role)).sort((a, b) => a.name.localeCompare(b.name)), [admin.users])
   const divisions = useMemo(() => [...new Set([...(admin.divisions || []), ...(visits || []).map((v) => text(v.division)).filter(Boolean)])].sort(), [admin.divisions, visits])
 
   const list = useMemo(() => {

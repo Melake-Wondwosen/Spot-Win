@@ -126,6 +126,22 @@ export default function Home() {
             <p className="text-[11px] uppercase tracking-[0.18em] text-gold">Spot Win</p>
             <p className="font-serif text-lg truncate">{user?.name || user?.username}</p>
           </div>
+          {user.role !== 'sales' && (
+            <button
+              type="button"
+              onClick={() => navigate('/manager')}
+              aria-label="Team view"
+              className="btn-hover shrink-0 inline-flex items-center justify-center gap-1.5 h-10 w-10 min-[440px]:w-auto min-[440px]:px-3 rounded-full border border-gold/50 text-gold text-sm font-semibold hover:bg-gold hover:text-ink"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="8" r="3.2" />
+                <path d="M3.5 20c.8-3.6 3-5.5 5.5-5.5s4.7 1.9 5.5 5.5" />
+                <circle cx="17" cy="9.5" r="2.4" />
+                <path d="M15.5 14.4c2.6-.3 4.4 1.3 5 4.6" />
+              </svg>
+              <span className="hidden min-[440px]:inline">Team</span>
+            </button>
+          )}
           <Bell />
           <SignOutButton onClick={signOut} />
         </div>

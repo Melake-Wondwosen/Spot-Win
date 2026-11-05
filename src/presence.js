@@ -4,7 +4,7 @@ import { latestFix, onLocation, startWatch } from './location'
 import { getUser, setSettings } from './storage'
 import { setServerNotes } from './notes'
 import { syncPack } from './outlets'
-import { isSales } from './roles'
+import { canRecord } from './roles'
 
 // Tells the manager view where each sales user is and what they're doing.
 // Runs only while the app is open on the phone.
@@ -17,7 +17,7 @@ let locationOffReported = false
 
 function body(state) {
   const u = getUser()
-  if (!isSales(u)) return null
+  if (!canRecord(u)) return null
   return { token: u.token, userName: u.name, activity, state, location: latestFix(), device: deviceLabel() }
 }
 
@@ -55,7 +55,7 @@ function onVisibility() {
 }
 
 export function startPresence() {
-  if (started || !isSales(getUser())) return
+  if (started || !canRecord(getUser())) return
   started = true
   startWatch()
   onLocation(({ error }) => {

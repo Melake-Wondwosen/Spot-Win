@@ -282,6 +282,8 @@ function roleOf_(text) {
 }
 
 var VIEWERS = ['manager', 'rtm', 'asm', 'admin'];
+// Roles that record visits: sales people, and ASMs and RTMs in the field
+var RECORDERS = ['sales', 'asm', 'rtm'];
 
 function publicUser_(u) {
   return { id: u.id, name: u.name, username: u.username, staffId: u.staffId || '', role: u.role, region: u.region || '', agent: u.agent || '', active: u.active, passwordSet: !!u.changed };
@@ -301,12 +303,14 @@ function scopeFor_(me) {
   var ids = {};
   if (me.role === 'asm') {
     var agents = agentsOf_(me.agent);
-    readUsers_().forEach(function (u) { if (u.role === 'sales' && agentsOf_(u.agent).some(function (a) { return agents.indexOf(a) > -1; })) ids[u.id] = true; });
+    readUsers_().forEach(function (u) {
+      if (u.id === me.id || (u.role === 'sales' && agentsOf_(u.agent).some(function (a) { return agents.indexOf(a) > -1; }))) ids[u.id] = true;
+    });
     return { kind: 'agent', agents: agents, label: 'ASM · ' + (me.agent || 'no agent set'), ids: ids };
   }
   // Managers and RTMs: their division (region). Blank region = all divisions.
   if ((me.role !== 'manager' && me.role !== 'rtm') || !String(me.region || '').trim()) return null;
-  readUsers_().forEach(function (u) { if (u.role === 'sales' && sameDiv_(u.region, me.region)) ids[u.id] = true; });
+  readUsers_().forEach(function (u) { if (RECORDERS.indexOf(u.role) > -1 && (u.id === me.id || sameDiv_(u.region, me.region))) ids[u.id] = true; });
   return { kind: 'division', division: me.region, label: (me.role === 'rtm' ? 'RTM · ' : 'Manager · ') + me.region, ids: ids };
 }
 
@@ -415,7 +419,7 @@ function paymentLogin_(b) {
     date: now_(), userId: u.id, userName: u.name, role: u.role,
     lat: num_(loc.lat), lng: num_(loc.lng), accuracy: num_(loc.accuracy), device: String(b.device || '').slice(0, 200)
   });
-  if (u.role === 'sales') {
+  if (RECORDERS.indexOf(u.role) > -1 && loc.lat != null && loc.lng != null) {
     appendTrack_(u, loc, 'Signed in');
     tryLock_(3000, function () { upsertPresence_(u, { state: 'online', activity: 'Signed in', location: loc, device: b.device }); });
   }
@@ -1113,8 +1117,8 @@ function managerData_(b) {
     serverTime: now_(),
     division: scope && scope.kind === 'division' ? scope.division : '',
     scopeLabel: scope ? scope.label : '',
-    users: readUsers_().filter(function (u) { return u.role === 'sales' && u.active && mine(u.id); })
-      .map(function (u) { return { id: u.id, name: u.name, username: u.username, staffId: u.staffId, region: u.region, agent: u.agent }; }),
+    users: readUsers_().filter(function (u) { return RECORDERS.indexOf(u.role) > -1 && u.active && mine(u.id); })
+      .map(function (u) { return { id: u.id, name: u.name, username: u.username, staffId: u.staffId, region: u.region, agent: u.agent, role: u.role }; }),
     presence: readRows_('Presence', 0).filter(function (p) { return mine(p.userId); }),
     visits: visits,
     track: readRows_('Track', 8000).filter(function (r) { return String(r.date) >= trackFrom && mine(r.userId); }),

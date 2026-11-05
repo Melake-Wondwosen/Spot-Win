@@ -220,7 +220,7 @@ export async function demoCall(action, p) {
     case 'managerData': {
       const scoped = me?.role === 'manager' || me?.role === 'rtm'
       const asm = me?.role === 'asm'
-      const users = d.users.filter((u) => u.role === 'sales' && (asm ? u.agent === me.agent : !scoped || u.region === 'North Addis'))
+      const users = d.users.filter((u) => ['sales', 'asm', 'rtm'].includes(u.role) && (asm ? u.agent === me.agent || u.id === me.id : !scoped || u.region === 'North Addis'))
       const ids = new Set(users.map((u) => u.id))
       const visits = d.visits.filter((v) => between(v.date, p.from, p.to) && (asm ? v.agent === me.agent : !scoped || v.division === 'North Addis'))
       if (p.lite) return { serverTime: new Date().toISOString(), visits }

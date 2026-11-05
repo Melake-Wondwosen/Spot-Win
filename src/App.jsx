@@ -4,6 +4,7 @@ import { DEMO } from './config'
 import { getUser } from './storage'
 import { isLocked, onLock } from './guard'
 import { startPresence } from './presence'
+import { startWatch } from './location'
 import { homeFor } from './roles'
 import { loadOutlets, syncPack } from './outlets'
 import Login from './pages/Login'
@@ -31,6 +32,7 @@ function RequireRole({ roles, children }) {
 
 function SalesShell({ children }) {
   useEffect(() => {
+    startWatch()
     startPresence()
     loadOutlets().then(() => syncPack())
     const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 600))
@@ -66,8 +68,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/password" element={<Navigate to="/login" replace />} />
-          <Route path="/" element={<RequireRole roles={['sales']}><SalesShell><Home /></SalesShell></RequireRole>} />
-          <Route path="/visit" element={<RequireRole roles={['sales']}><SalesShell><Visit /></SalesShell></RequireRole>} />
+          <Route path="/" element={<RequireRole roles={['sales', 'asm', 'rtm']}><SalesShell><Home /></SalesShell></RequireRole>} />
+          <Route path="/visit" element={<RequireRole roles={['sales', 'asm', 'rtm']}><SalesShell><Visit /></SalesShell></RequireRole>} />
           <Route path="/manager" element={<RequireRole roles={['manager', 'rtm', 'asm', 'admin']}><Manager /></RequireRole>} />
           <Route path="/admin" element={<RequireRole roles={['admin']}><Admin /></RequireRole>} />
           <Route path="*" element={<Navigate to={getUser()?.token ? homeFor(getUser()) : '/login'} replace />} />
