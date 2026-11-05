@@ -32,7 +32,21 @@ export default function InstallButton({ variant = 'icon' }) {
 
   return (
     <>
-      {variant === 'glass' ? (
+      {variant === 'banner' ? (
+        <section className="anim-rise relative overflow-hidden rounded-2xl bg-ink text-paper p-3.5 sm:p-4 flex items-center gap-3 shadow-[0_16px_32px_-20px_rgba(0,0,0,0.7)]">
+          <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-12 w-40 h-40 rounded-full bg-gold/25 blur-2xl" />
+          <span className="relative w-11 h-11 rounded-2xl gold-gradient text-ink flex items-center justify-center shrink-0">
+            <DownloadIcon size={22} />
+          </span>
+          <span className="relative flex-1 min-w-0">
+            <span className="block font-semibold leading-tight">Get the Spot Win app</span>
+            <span className="block text-xs text-paper/60 mt-0.5">Install it on this {st.ios || /Android/.test(navigator.userAgent) ? 'phone' : 'computer'}. It opens from its own icon, full screen.</span>
+          </span>
+          <button type="button" onClick={click} className="btn-hover relative shrink-0 h-10 px-4 rounded-full gold-gradient text-ink text-sm font-bold">
+            Download
+          </button>
+        </section>
+      ) : variant === 'glass' ? (
         <button
           type="button"
           onClick={click}

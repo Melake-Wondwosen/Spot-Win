@@ -138,6 +138,9 @@ export default function Admin() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
+        <div className="empty:hidden mb-4">
+          <InstallButton variant="banner" />
+        </div>
         {error && <Notice className="mb-4">{error}</Notice>}
         {!data && !error && <Skeleton />}
         {data && (

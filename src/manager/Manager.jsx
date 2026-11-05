@@ -154,6 +154,10 @@ export default function Manager() {
         </div>
       </header>
 
+      <div className="empty:hidden max-w-6xl mx-auto px-4 sm:px-6 pt-4 -mb-1">
+        <InstallButton variant="banner" />
+      </div>
+
       {view === 'spending' && (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 anim-rise">
           <Suspense fallback={<div className="skeleton h-40 rounded-2xl" />}>
