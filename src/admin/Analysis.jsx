@@ -123,13 +123,14 @@ export default function Analysis({ role = 'admin', exportMeta }) {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl bg-ink text-paper p-3 flex flex-wrap items-center gap-2">
+      <div className="rounded-2xl bg-ink text-paper p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-start gap-2.5">
         <Period {...props} />
-        <div className="ml-auto flex items-center gap-2">
-          <button type="button" onClick={load} disabled={busy} className="btn-hover h-10 rounded-full px-4 text-sm font-semibold border border-paper/25 text-paper inline-flex items-center gap-2 hover:border-gold">
-            {busy ? <Spinner /> : '↻'} Refresh
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <button type="button" onClick={load} disabled={busy} aria-label="Refresh" className="btn-hover shrink-0 h-10 w-10 sm:w-auto sm:px-4 rounded-full text-sm font-semibold border border-paper/25 text-paper inline-flex items-center justify-center gap-2 hover:border-gold">
+            <svg className={busy ? 'animate-spin' : ''} width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 1-15.36 6.36L3 16" /><path d="M3 12a9 9 0 0 1 15.36-6.36L21 8" /><path d="M21 3v5h-5" /><path d="M3 21v-5h5" /></svg>
+            <span className="hidden sm:inline">Refresh</span>
           </button>
-          <ExportButton filters={exportFilters} meta={exportName} />
+          <ExportButton className="flex-1 sm:flex-none" block filters={exportFilters} meta={exportName} />
         </div>
       </div>
 
@@ -159,13 +160,13 @@ export default function Analysis({ role = 'admin', exportMeta }) {
 
       {visits && (
         <>
-          <div key={path.length} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 stagger">
+          <div key={path.length} className="grid grid-cols-2 min-[400px]:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 stagger">
             <Tile i={0} label="Visits" value={whole(t.visits)} />
             <Tile i={1} label="Outlets visited" value={whole(t.outlets)} />
-            <Tile i={2} label="Sales people active" value={whole(t.users)} />
+            <Tile i={2} label="Active SPs" value={whole(t.users)} />
             <Tile i={3} label="Total Birr" value={birr(Math.round(t.birr))} gold />
             <Tile i={4} label="Total crates" value={whole(t.crates)} gold />
-            <Tile i={5} label="Avg Birr per visit" value={t.avgBirr == null ? '–' : birr(Math.round(t.avgBirr))} sub="Birr visits only" />
+            <Tile i={5} label="Avg Birr per visit" value={t.avgBirr == null ? '–' : birr(Math.round(t.avgBirr))} />
           </div>
 
           <section className="rounded-2xl bg-white border border-ink/10 p-4 anim-rise">

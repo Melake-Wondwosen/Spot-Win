@@ -67,12 +67,14 @@ export default function Admin() {
   return (
     <main className="min-h-full safe-bottom anim-fade bg-[#fbfaf7]">
       <header className="bg-ink text-paper safe-top sticky top-0 z-[1200] shadow-[0_6px_20px_rgba(0,0,0,0.25)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-3 sm:pt-4">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Avatar name={user.name} />
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-gold truncate">Spot Win · Admin</p>
-              <p className="font-serif text-lg truncate">{user.name}</p>
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] text-gold truncate">
+                <span className="hidden sm:inline">Spot Win · </span>Admin
+              </p>
+              <p className="font-serif text-base sm:text-lg leading-tight truncate">{user.name}</p>
             </div>
             <Link to="/manager" className="btn-hover inline-flex items-center justify-center text-sm text-gold border border-gold/40 rounded-full w-10 sm:w-auto sm:px-4 h-10 shrink-0 hover:bg-gold hover:text-ink" aria-label="Manager view">
               <svg className="sm:hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -85,8 +87,27 @@ export default function Admin() {
             <SignOutButton onClick={signOut} />
           </div>
 
-          {/* Two rows of four on phones, one row of eight from tablets up */}
-          <nav className="mt-3 grid grid-cols-4 md:grid-cols-8">
+          {/* Phones: one row of pills that swipes sideways. Tablets and up: all eight tabs in a row. */}
+          <nav className="md:hidden -mx-4 px-4 mt-3 pb-3 flex gap-1.5 overflow-x-auto no-scrollbar snap-x">
+            {TABS.map((t) => {
+              const on = tab === t.key
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  ref={on ? (el) => el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }) : undefined}
+                  onClick={() => setTab(t.key)}
+                  className={`snap-start shrink-0 relative h-9 px-4 rounded-full text-[13px] font-semibold transition-colors ${on ? 'gold-gradient text-ink' : 'bg-paper/10 text-paper/75'}`}
+                >
+                  {t.label}
+                  {badge[t.key] > 0 && (
+                    <span className="ml-1.5 inline-flex min-w-[18px] h-[18px] px-1 rounded-full bg-paper text-ink text-[10px] font-bold items-center justify-center align-[1px]">{badge[t.key]}</span>
+                  )}
+                </button>
+              )
+            })}
+          </nav>
+          <nav className="hidden md:grid mt-3 grid-cols-8">
             {TABS.map((t) => {
               const on = tab === t.key
               return (

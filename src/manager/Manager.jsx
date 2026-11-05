@@ -87,12 +87,12 @@ export default function Manager() {
     <main className="min-h-full safe-bottom anim-fade bg-[#fbfaf7]">
       <header className="relative z-[1200] bg-ink text-paper safe-top">
         <span aria-hidden="true" className="pointer-events-none absolute right-0 top-0 w-72 h-40 bg-gold/20 blur-3xl" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-4">
-          <div className="flex items-center gap-2 min-[380px]:gap-3">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-3 sm:pt-4 pb-3 sm:pb-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Avatar name={user.name} />
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-gold truncate">{title}</p>
-              <p className="font-serif text-lg truncate">{user.name}</p>
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] text-gold truncate">{title}</p>
+              <p className="font-serif text-base sm:text-lg leading-tight truncate">{user.name}</p>
             </div>
             {(user.role === 'asm' || user.role === 'rtm') && (
               <Link
@@ -116,7 +116,7 @@ export default function Manager() {
             <SignOutButton onClick={signOut} />
           </div>
           {(user.role === 'asm' || user.role === 'rtm') && (
-            <Link to="/" className="sm:hidden mt-4 flex items-center justify-center gap-2 rounded-2xl gold-gradient text-ink h-12 font-bold active:scale-[0.98]">
+            <Link to="/" className="sm:hidden mt-3 flex items-center justify-center gap-2 rounded-2xl gold-gradient text-ink h-11 font-bold active:scale-[0.98]">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 21h18" />
                 <path d="M5 21V8l7-5 7 5v13" />
@@ -125,26 +125,27 @@ export default function Manager() {
               Record a visit
             </Link>
           )}
-          <div className="mt-4 flex rounded-full bg-paper/10 p-1 w-fit">
+          <div className="mt-3 sm:mt-4 grid grid-cols-2 sm:inline-grid rounded-full bg-paper/10 p-1 w-full sm:w-auto">
             {VIEWS.map((v) => (
               <button
                 key={v.key}
                 type="button"
                 onClick={() => setView(v.key)}
-                className={`px-5 min-h-[34px] rounded-full text-sm font-semibold ${view === v.key ? 'bg-paper text-ink shadow-sm' : 'tab-hover text-paper/70 hover:text-paper'}`}
+                className={`px-5 h-9 rounded-full text-sm font-semibold ${view === v.key ? 'bg-paper text-ink shadow-sm' : 'tab-hover text-paper/70 hover:text-paper'}`}
               >
                 {v.label}
               </button>
             ))}
           </div>
           {view === 'live' && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-3 flex flex-col sm:flex-row sm:items-start gap-2.5">
             <Period {...periodProps} />
-            <div className="ml-auto flex items-center gap-2">
-              <button type="button" onClick={load} disabled={busy} className="text-xs text-paper/65 h-10 px-2 inline-flex items-center gap-2 hover:text-paper">
-                {busy ? <Spinner /> : '↻'} {fetchedAt ? `Updated ${time(fetchedAt)}` : 'Loading'}
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <button type="button" onClick={load} disabled={busy} className="shrink-0 text-xs text-paper/65 h-10 px-1 inline-flex items-center gap-1.5 hover:text-paper">
+                <svg className={busy ? 'animate-spin' : ''} width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 1-15.36 6.36L3 16" /><path d="M3 12a9 9 0 0 1 15.36-6.36L21 8" /><path d="M21 3v5h-5" /><path d="M3 21v-5h5" /></svg>
+                {fetchedAt ? time(fetchedAt) : 'Loading'}
               </button>
-              <ExportButton filters={() => ({ from: range.from, to: range.to, status: 'Saved' })} meta={() => ({ division: data?.division || (user.role === 'asm' ? user.agent : '') })} />
+              <ExportButton className="flex-1 sm:flex-none" block filters={() => ({ from: range.from, to: range.to, status: 'Saved' })} meta={() => ({ division: data?.division || (user.role === 'asm' ? user.agent : '') })} />
             </div>
           </div>
           )}
@@ -171,8 +172,8 @@ export default function Manager() {
 
         {data && (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 stagger">
-              <Tile i={0} label="Online now" value={online} sub={`of ${team.length} sales users`} live />
+            <div className="grid grid-cols-2 min-[400px]:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 stagger">
+              <Tile i={0} label="Online now" value={online} sub={`of ${team.length}`} live />
               <Tile i={1} label="Active today" value={activeToday} />
               <Tile i={2} label="Visits" value={whole(sum.visits)} />
               <Tile i={3} label="Outlets visited" value={whole(sum.outlets)} />

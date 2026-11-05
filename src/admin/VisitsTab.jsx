@@ -62,10 +62,11 @@ export default function VisitsTab({ data: admin }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl bg-ink text-paper p-3 flex flex-wrap items-center gap-2">
+      <div className="rounded-2xl bg-ink text-paper p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-start gap-2.5">
         <Period {...props} />
         <ExportButton
-          className="ml-auto"
+          block
+          className="sm:ml-auto"
           filters={() => ({ from: range.from, to: range.to, division: f.division, userId: f.userId, activity: f.activity, unit: f.unit, status: f.status, q: q.trim() })}
           meta={() => ({ division: f.division, userName: users.find((u) => u.id === f.userId)?.name })}
         />

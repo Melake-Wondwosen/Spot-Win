@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Spinner } from './ui'
 
 // One click: fetches every matching visit and downloads the .xlsx
-export default function ExportButton({ filters, meta, dark = true, className = '' }) {
+export default function ExportButton({ filters, meta, dark = true, className = '', block = false }) {
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
 
@@ -27,7 +27,7 @@ export default function ExportButton({ filters, meta, dark = true, className = '
         type="button"
         onClick={run}
         disabled={!!busy}
-        className={`btn-hover inline-flex items-center gap-2 rounded-full h-10 px-4 text-sm font-semibold whitespace-nowrap disabled:opacity-80 ${dark ? 'gold-gradient text-ink' : 'bg-ink text-paper hover:bg-ink-soft'}`}
+        className={`btn-hover inline-flex items-center justify-center gap-2 rounded-full h-10 px-4 text-sm font-semibold whitespace-nowrap disabled:opacity-80 ${block ? 'w-full sm:w-auto' : ''} ${dark ? 'gold-gradient text-ink' : 'bg-ink text-paper hover:bg-ink-soft'}`}
       >
         {busy ? (
           <Spinner />

@@ -28,15 +28,15 @@ export function usePeriod(initial = 'today') {
 // One number tile. Gold tiles are black with gold labels.
 export function Tile({ i, label, value, sub, live, gold }) {
   return (
-    <div className={`tilt spot rounded-2xl border px-4 py-3.5 min-w-0 ${gold ? 'bg-ink text-paper border-ink spot-dark' : 'bg-white border-ink/10'}`} style={{ '--i': i }} data-tilt="6">
-      <p className={`text-[11px] uppercase tracking-[0.14em] flex items-center gap-1.5 truncate ${gold ? 'text-gold' : 'text-gold-dark'}`}>
+    <div className={`tilt spot rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3.5 min-w-0 ${gold ? 'bg-ink text-paper border-ink spot-dark' : 'bg-white border-ink/10'}`} style={{ '--i': i }} data-tilt="6">
+      <p className={`text-[10px] sm:text-[11px] leading-tight uppercase tracking-[0.1em] sm:tracking-[0.14em] flex items-center gap-1.5 min-h-[2.4em] sm:min-h-0 ${gold ? 'text-gold' : 'text-gold-dark'}`}>
         {live && <span className="w-2 h-2 rounded-full bg-gold live-dot shrink-0" />}
         {label}
       </p>
-      <p key={String(value)} className="tilt-pop font-serif text-[28px] leading-tight mt-1 truncate tabular anim-count">
+      <p key={String(value)} className="tilt-pop font-serif text-[22px] sm:text-[28px] leading-tight mt-0.5 sm:mt-1 truncate tabular anim-count">
         {value}
       </p>
-      {sub && <p className={`text-xs truncate ${gold ? 'text-paper/50' : 'text-ink/50'}`}>{sub}</p>}
+      {sub && <p className={`text-[11px] sm:text-xs truncate ${gold ? 'text-paper/50' : 'text-ink/50'}`}>{sub}</p>}
     </div>
   )
 }

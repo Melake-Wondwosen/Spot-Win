@@ -151,14 +151,14 @@ export function SignOutButton({ onClick }) {
       type="button"
       onClick={onClick}
       aria-label="Sign out"
-      className="btn-hover shrink-0 inline-flex items-center justify-center gap-1.5 text-sm text-paper/85 border border-paper/25 rounded-full w-10 min-[380px]:w-auto min-[380px]:px-4 h-10 hover:bg-paper hover:text-ink hover:border-paper"
+      className="btn-hover shrink-0 inline-flex items-center justify-center gap-1.5 text-sm text-paper/85 border border-paper/25 rounded-full w-10 sm:w-auto sm:px-4 h-10 hover:bg-paper hover:text-ink hover:border-paper"
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
         <path d="m16 17 5-5-5-5" />
         <path d="M21 12H9" />
       </svg>
-      <span className="hidden min-[380px]:inline">Sign out</span>
+      <span className="hidden sm:inline">Sign out</span>
     </button>
   )
 }
@@ -252,7 +252,7 @@ export const initials = (name) =>
     .toUpperCase()
 
 // The user's badge: initials inside a gold ring
-export function Avatar({ name, className = 'w-11 h-11 text-sm', dark = true }) {
+export function Avatar({ name, className = 'w-10 h-10 text-xs sm:w-11 sm:h-11 sm:text-sm', dark = true }) {
   return (
     <span className={`relative shrink-0 rounded-full p-[2px] gold-gradient ${className.includes('w-') ? '' : 'w-11 h-11'} ${className}`}>
       <span className={`w-full h-full rounded-full flex items-center justify-center font-bold tracking-wide ${dark ? 'bg-ink text-gold' : 'bg-white text-ink'}`}>{initials(name)}</span>
