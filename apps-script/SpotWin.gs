@@ -38,6 +38,7 @@ function json_(obj) {
 
 var HANDLERS = {
   paymentLogin: paymentLogin_,
+  changePassword: changePassword_,
   ping: ping_,
   flag: flag_,
   outletPack: outletPack_,
@@ -90,7 +91,7 @@ var MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 var MAX_THUMB_CHARS = 45000;
 
 var HEADERS = {
-  Users: ['id', 'username', 'password', 'name', 'staffId', 'role', 'region', 'agent', 'active'],
+  Users: ['id', 'username', 'password', 'name', 'staffId', 'role', 'region', 'agent', 'active', 'passwordChanged'],
   Visits: ['id', 'status', 'date', 'userId', 'userName', 'staffId', 'outletId', 'outletName', 'division', 'agent', 'parentTerritory', 'territory',
     'activity', 'investmentUnit', 'amount',
     'receiptPhotoId', 'receiptUrl', 'receiptSource', 'receiptHash', 'receiptAt',
@@ -207,6 +208,8 @@ function requireUser_(token, roles) {
   var u = findUser_(t.id);
   if (!u || !u.active) fail_('This account is no longer active.');
   if (roles && roles.indexOf(u.role) < 0) fail_('This account does not have access to that.');
+  // Until they pick their own password, the app opens nothing else
+  if (!u.changed) fail_('Choose a new password to continue.');
   return u;
 }
 
@@ -223,7 +226,8 @@ function usersTable_() {
   var c = {
     user: col(['username', 'user', 'login']), pass: col(['password', 'pass', 'pin']), id: col(['id', 'userid']),
     name: col(['name', 'fullname']), staff: col(['staffid', 'staff']), role: col(['role', 'type']),
-    region: col(['region', 'division']), agent: col(['agent', 'agents']), active: col(['active', 'status'])
+    region: col(['region', 'division']), agent: col(['agent', 'agents']), active: col(['active', 'status']),
+    changed: col(['passwordchanged'])
   };
   if (c.user < 0 || c.pass < 0) fail_('Users tab needs username and password columns.');
   var users = [];
@@ -243,7 +247,9 @@ function usersTable_() {
       role: roleOf_(role),
       region: c.region > -1 ? String(row[c.region]).trim() : '',
       agent: c.agent > -1 ? String(row[c.agent]).trim() : '',
-      active: ['no', 'false', 'inactive', 'blocked', '0'].indexOf(act) < 0
+      active: ['no', 'false', 'inactive', 'blocked', '0'].indexOf(act) < 0,
+      // Blank until the user picks their own password; an admin setting a password clears it
+      changed: c.changed > -1 && String(row[c.changed]).trim() !== ''
     });
   }
   return { sheet: sheet, c: c, users: users };
@@ -251,13 +257,13 @@ function usersTable_() {
 
 function readUsers_() {
   var cache = CacheService.getScriptCache();
-  var hit = cache.get('users_v1');
+  var hit = cache.get('users_v2');
   if (hit) return JSON.parse(hit);
   var users = usersTable_().users;
-  try { cache.put('users_v1', JSON.stringify(users), 60); } catch (e) { /* too big to cache */ }
+  try { cache.put('users_v2', JSON.stringify(users), 60); } catch (e) { /* too big to cache */ }
   return users;
 }
-function clearUsersCache_() { CacheService.getScriptCache().remove('users_v1'); }
+function clearUsersCache_() { CacheService.getScriptCache().remove('users_v2'); }
 
 function findUser_(id) {
   var users = readUsers_();
@@ -280,7 +286,7 @@ function roleOf_(text) {
 var VIEWERS = ['manager', 'rtm', 'asm', 'admin'];
 
 function publicUser_(u) {
-  return { id: u.id, name: u.name, username: u.username, staffId: u.staffId || '', role: u.role, region: u.region || '', agent: u.agent || '', active: u.active };
+  return { id: u.id, name: u.name, username: u.username, staffId: u.staffId || '', role: u.role, region: u.region || '', agent: u.agent || '', active: u.active, passwordSet: !!u.changed };
 }
 
 /* ================= divisions and agents ================= */
@@ -417,7 +423,39 @@ function paymentLogin_(b) {
   }
   var pub = publicUser_(u);
   pub.token = makeToken_(u);
+  pub.mustChange = !u.changed;
   return { user: pub, settings: readSettings_() };
+}
+
+// First sign-in (or after an admin reset): the user picks their own password
+function changePassword_(b) {
+  var t = readToken_(b.token);
+  if (!t) fail_('Session not valid. Sign in again.');
+  var np = String(b.newPassword || '').trim();
+  if (np.length < 6) fail_('Use at least 6 characters.');
+  if (/\s/.test(np)) fail_('Leave out spaces.');
+  if (np.length > 40) fail_('Use 40 characters or fewer.');
+  var msg = null;
+  withLock_(function () {
+    var tb = usersTable_();
+    if (tb.c.changed < 0) {
+      tb.sheet.getRange(1, tb.sheet.getLastColumn() + 1).setValue('passwordChanged').setFontWeight('bold');
+      tb = usersTable_();
+    }
+    var u = tb.users.filter(function (x) { return x.id === t.id; })[0];
+    if (!u || !u.active) { msg = 'This account is no longer active.'; return; }
+    if (np.toLowerCase() === u.password.toLowerCase()) { msg = 'Pick a password different from the one you were given.'; return; }
+    if (np.toLowerCase() === u.username.toLowerCase()) { msg = 'Your password cannot be your username.'; return; }
+    var pass = tb.sheet.getRange(u.row, tb.c.pass + 1);
+    pass.setNumberFormat('@');
+    pass.setValue(safe_(np));
+    var when = tb.sheet.getRange(u.row, tb.c.changed + 1);
+    when.setNumberFormat('@');
+    when.setValue(now_());
+  });
+  if (msg) fail_(msg);
+  clearUsersCache_();
+  return {};
 }
 
 function ping_(b) {
@@ -1174,7 +1212,7 @@ function saveUser_(b) {
   withLock_(function () {
     var t = usersTable_();
     // Add any missing columns at the end before writing to them
-    var need = [['id', 'id'], ['name', 'name'], ['staff', 'staffId'], ['role', 'role'], ['region', 'region'], ['agent', 'agent'], ['active', 'active']].filter(function (p) { return t.c[p[0]] < 0; });
+    var need = [['id', 'id'], ['name', 'name'], ['staff', 'staffId'], ['role', 'role'], ['region', 'region'], ['agent', 'agent'], ['active', 'active'], ['changed', 'passwordChanged']].filter(function (p) { return t.c[p[0]] < 0; });
     if (need.length) {
       t.sheet.getRange(1, t.sheet.getLastColumn() + 1, 1, need.length).setValues([need.map(function (p) { return p[1]; })]).setFontWeight('bold');
       t = usersTable_();
@@ -1205,7 +1243,11 @@ function saveUser_(b) {
     put(t.c.active, active ? 'yes' : 'no');
     put(t.c.region, region);
     put(t.c.agent, agent);
-    if (password) put(t.c.pass, password);
+    // A password set by an admin is temporary: the user picks their own at the next sign-in
+    if (password) {
+      put(t.c.pass, password);
+      put(t.c.changed, '');
+    }
     clearUsersCache_();
   });
   if (msg) fail_(msg);

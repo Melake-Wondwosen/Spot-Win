@@ -24,7 +24,7 @@ export default function Login() {
     setFace((f) => ({ ...f, mood: st === 'signing' ? 'idle' : 'confused' }))
   }
 
-  if (current?.token) return <Navigate to={homeFor(current)} replace />
+  if (current?.token) return <Navigate to={current.mustChange ? '/password' : homeFor(current)} replace />
 
   return (
     <main className="login-glass min-h-full flex flex-col safe-top safe-bottom relative overflow-hidden bg-ink text-paper">
@@ -47,7 +47,7 @@ export default function Login() {
           <p className="text-paper/60 text-[15px]">Sign in to record your outlet visits</p>
         </div>
         <div className="mt-7" style={{ '--i': 3 }}>
-          <SignInForm onWatch={watch} onStatus={status} onDone={(u) => navigate(homeFor(u), { replace: true })} />
+          <SignInForm onWatch={watch} onStatus={status} onDone={(u) => navigate(u.mustChange ? '/password' : homeFor(u), { replace: true })} />
         </div>
       </div>
     </main>

@@ -121,6 +121,7 @@ export function UsersTab({ data, reload, say }) {
               <span className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
                 <Chip tone={u.role === 'admin' ? 'dark' : u.role === 'manager' || u.role === 'asm' || u.role === 'rtm' ? 'gold' : 'plain'}>{ROLE_LABEL[u.role]}</Chip>
                 {!u.active && <Chip tone="red">Blocked</Chip>}
+                {u.active && u.passwordSet === false && <Chip>Temp password</Chip>}
               </span>
             </button>
           </li>
@@ -214,6 +215,7 @@ function UserSheet({ user, divisions, agents, reload, say, onClose }) {
       <Field label="Password">
         <input className={inputClass} value={f.password} onChange={put('password')} autoComplete="new-password" placeholder={user ? 'Unchanged' : ''} />
       </Field>
+      <p className="text-xs text-ink/50 -mt-2">A password set here is temporary. They choose their own the next time they sign in.</p>
       {!self && (
         <label className="flex items-center justify-between rounded-2xl bg-white border border-ink/10 px-4 py-3">
           <span className="font-semibold">Active</span>

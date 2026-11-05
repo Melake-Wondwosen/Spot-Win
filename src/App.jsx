@@ -8,6 +8,7 @@ import { homeFor } from './roles'
 import { loadOutlets, syncPack } from './outlets'
 import Login from './pages/Login'
 import Home from './pages/Home'
+import SetPassword from './pages/SetPassword'
 import { Emblem, Spinner } from './components/ui'
 
 // The visit flow loads in the background once the home screen is up, so
@@ -24,6 +25,7 @@ const Router = DEMO ? HashRouter : BrowserRouter
 function RequireRole({ roles, children }) {
   const user = getUser()
   if (!user?.token) return <Navigate to="/login" replace />
+  if (user.mustChange) return <Navigate to="/password" replace />
   if (!roles.includes(user.role)) return <Navigate to={homeFor(user)} replace />
   return children
 }
@@ -64,6 +66,7 @@ export default function App() {
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/password" element={<SetPassword />} />
           <Route path="/" element={<RequireRole roles={['sales']}><SalesShell><Home /></SalesShell></RequireRole>} />
           <Route path="/visit" element={<RequireRole roles={['sales']}><SalesShell><Visit /></SalesShell></RequireRole>} />
           <Route path="/manager" element={<RequireRole roles={['manager', 'rtm', 'asm', 'admin']}><Manager /></RequireRole>} />

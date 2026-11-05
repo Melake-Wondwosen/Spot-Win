@@ -126,6 +126,7 @@ function demoPhoto(id, w, h) {
 
 const roleOf = (u) => (/admin/i.test(u) ? 'admin' : /\basm\b/i.test(u) ? 'asm' : /\brtm\b/i.test(u) ? 'rtm' : /manager|melake/i.test(u) ? 'manager' : 'sales')
 let me = null
+const passwordSet = new Set()
 const between = (iso, from, to) => (!from || iso >= from) && (!to || iso < to)
 
 function notesFor(role) {
@@ -158,8 +159,14 @@ export async function demoCall(action, p) {
       if (role === 'sales' && !p.location) throw new Error('Location is required to sign in.')
       const base = d.users.find((u) => u.role === role)
       me = { ...base, name: role === 'sales' ? p.username.trim() || base.name : base.name }
-      return { user: { ...me, token: 'demo-' + role }, settings: d.settings }
+      const first = !passwordSet.has(p.username.trim().toLowerCase())
+      return { user: { ...me, token: 'demo-' + role, mustChange: first }, settings: d.settings }
     }
+    case 'changePassword':
+      if (String(p.newPassword).length < 6) throw new Error('Use at least 6 characters.')
+      passwordSet.add(String(me?.username || '').toLowerCase())
+      passwordSet.add(String(me?.name || '').toLowerCase())
+      return {}
     case 'ping':
       return { notes: notesFor('sales'), packVersion: 'demo', settings: d.settings }
     case 'notifications':

@@ -1,5 +1,5 @@
 import { API_URL, DEMO, LOGIN_TIMEOUT_MS, PHOTO_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from './config'
-import { clearUser, getUser, setSettings } from './storage'
+import { clearUser, getUser, setSettings, setUser } from './storage'
 
 // Apps Script answers with an HTML page when the deployment is misconfigured.
 // Turn that into something the user (or whoever they call) can act on.
@@ -56,6 +56,14 @@ export async function post(action, payload = {}, timeoutMs = REQUEST_TIMEOUT_MS)
 // Same as post, with the signed-in user's token attached. A blocked account or
 // a broken session sends the user back to the sign-in page.
 const LOST = /no longer active|Session not valid/i
+const NEEDS_PASSWORD = /Choose a new password/i
+function needsPassword() {
+  const u = getUser()
+  if (!u) return
+  setUser({ ...u, mustChange: true })
+  const page = DEMO ? '#/password' : '/password'
+  if (!location.href.endsWith(page)) location.replace(page)
+}
 function sessionLost() {
   clearUser()
   const login = DEMO ? '#/login' : '/login'
@@ -66,6 +74,7 @@ async function authed(action, payload = {}, ms) {
     return await post(action, { token: getUser()?.token, ...payload }, ms)
   } catch (err) {
     if (LOST.test(err.message) && getUser()) sessionLost()
+    else if (NEEDS_PASSWORD.test(err.message)) needsPassword()
     throw err
   }
 }
@@ -83,10 +92,11 @@ export async function login(username, password, location) {
   if (!u || !u.token) throw new Error('Sign-in worked but no session came back. Is SpotWin.gs deployed?')
   setSettings(d.settings)
   const role = ['manager', 'rtm', 'asm', 'admin'].includes(u.role) ? u.role : 'sales'
-  return { id: String(u.id), name: String(u.name), username: String(u.username), staffId: String(u.staffId || ''), region: String(u.region || ''), agent: String(u.agent || ''), role, token: u.token }
+  return { id: String(u.id), name: String(u.name), username: String(u.username), staffId: String(u.staffId || ''), region: String(u.region || ''), agent: String(u.agent || ''), role, token: u.token, mustChange: !!u.mustChange }
 }
 
 export const ping = (body) => authed('ping', body)
+export const changePassword = (newPassword) => authed('changePassword', { newPassword })
 export const notifications = () => authed('notifications')
 export const fetchOutletPack = (version) => authed('outletPack', { version })
 export const lookupOutlet = (outletId) => authed('lookupOutlet', { outletId })
