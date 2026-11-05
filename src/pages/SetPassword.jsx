@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
-import { changePassword } from '../api'
+import { changePassword, keepPassword } from '../api'
 import { clearUser, getUser, setUser } from '../storage'
 import { homeFor } from '../roles'
 import { MovingPattern, Spinner, WatchingLogo } from '../components/ui'
@@ -53,6 +53,19 @@ export default function SetPassword() {
     }
   }
 
+  // Keeps the password they were given. If the server can't be reached they
+  // still carry on, and the screen comes back at their next sign-in.
+  async function keep() {
+    setBusy(true)
+    try {
+      await keepPassword()
+    } catch {
+      // carry on anyway
+    }
+    setUser({ ...user, mustChange: false })
+    navigate(homeFor(user), { replace: true })
+  }
+
   function signOut() {
     clearUser()
     navigate('/login', { replace: true })
@@ -101,7 +114,7 @@ export default function SetPassword() {
             <div style={{ '--i': 2 }} className="text-center mt-6">
               <h1 className="text-[26px] leading-tight font-bold tracking-tight">Choose your password</h1>
               <p className="text-paper/60 mt-1.5 text-[15px]">
-                Welcome, {user.name.split(' ')[0]}. Pick a password only you know. You'll use it every time you sign in.
+                Welcome, {user.name.split(' ')[0]}. Pick a password only you know, or keep the one you were given.
               </p>
             </div>
 
@@ -122,7 +135,10 @@ export default function SetPassword() {
               </button>
             </form>
 
-            <button type="button" onClick={signOut} className="link-hover mx-auto mt-5 text-sm text-paper/55 hover:text-paper" style={{ '--i': 4 }}>
+            <button type="button" onClick={keep} disabled={busy} className="mt-3 w-full h-[52px] rounded-full border border-paper/20 text-paper/85 font-semibold hover:border-gold hover:text-paper transition-colors" style={{ '--i': 4 }}>
+              Keep my current password
+            </button>
+            <button type="button" onClick={signOut} className="link-hover mx-auto mt-5 text-sm text-paper/55 hover:text-paper" style={{ '--i': 5 }}>
               Not you? Sign out
             </button>
           </>

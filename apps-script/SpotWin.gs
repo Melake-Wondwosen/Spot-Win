@@ -208,8 +208,6 @@ function requireUser_(token, roles) {
   var u = findUser_(t.id);
   if (!u || !u.active) fail_('This account is no longer active.');
   if (roles && roles.indexOf(u.role) < 0) fail_('This account does not have access to that.');
-  // Until they pick their own password, the app opens nothing else
-  if (!u.changed) fail_('Choose a new password to continue.');
   return u;
 }
 
@@ -427,10 +425,29 @@ function paymentLogin_(b) {
   return { user: pub, settings: readSettings_() };
 }
 
-// First sign-in (or after an admin reset): the user picks their own password
+// First sign-in (or after an admin reset): the user picks their own password,
+// or keeps the one they were given (keep: true). Either way they aren't asked again.
 function changePassword_(b) {
   var t = readToken_(b.token);
   if (!t) fail_('Session not valid. Sign in again.');
+  if (b.keep) {
+    var gone = null;
+    withLock_(function () {
+      var tk = usersTable_();
+      if (tk.c.changed < 0) {
+        tk.sheet.getRange(1, tk.sheet.getLastColumn() + 1).setValue('passwordChanged').setFontWeight('bold');
+        tk = usersTable_();
+      }
+      var me = tk.users.filter(function (x) { return x.id === t.id; })[0];
+      if (!me || !me.active) { gone = 'This account is no longer active.'; return; }
+      var cell = tk.sheet.getRange(me.row, tk.c.changed + 1);
+      cell.setNumberFormat('@');
+      cell.setValue('kept ' + now_());
+    });
+    if (gone) fail_(gone);
+    clearUsersCache_();
+    return {};
+  }
   var np = String(b.newPassword || '').trim();
   if (np.length < 6) fail_('Use at least 6 characters.');
   if (/\s/.test(np)) fail_('Leave out spaces.');

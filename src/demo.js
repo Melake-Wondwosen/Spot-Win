@@ -163,7 +163,7 @@ export async function demoCall(action, p) {
       return { user: { ...me, token: 'demo-' + role, mustChange: first }, settings: d.settings }
     }
     case 'changePassword':
-      if (String(p.newPassword).length < 6) throw new Error('Use at least 6 characters.')
+      if (!p.keep && String(p.newPassword).length < 6) throw new Error('Use at least 6 characters.')
       passwordSet.add(String(me?.username || '').toLowerCase())
       passwordSet.add(String(me?.name || '').toLowerCase())
       return {}

@@ -215,7 +215,7 @@ function UserSheet({ user, divisions, agents, reload, say, onClose }) {
       <Field label="Password">
         <input className={inputClass} value={f.password} onChange={put('password')} autoComplete="new-password" placeholder={user ? 'Unchanged' : ''} />
       </Field>
-      <p className="text-xs text-ink/50 -mt-2">A password set here is temporary. They choose their own the next time they sign in.</p>
+      <p className="text-xs text-ink/50 -mt-2">After signing in with a password set here, they're asked to choose their own. They can also keep this one.</p>
       {!self && (
         <label className="flex items-center justify-between rounded-2xl bg-white border border-ink/10 px-4 py-3">
           <span className="font-semibold">Active</span>
