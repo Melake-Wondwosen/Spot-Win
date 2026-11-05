@@ -154,7 +154,7 @@ export default function Manager() {
         </div>
       </header>
 
-      <div className="empty:hidden max-w-6xl mx-auto px-4 sm:px-6 pt-4 -mb-1">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 -mb-1">
         <InstallButton variant="banner" />
       </div>
 

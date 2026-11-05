@@ -9,26 +9,60 @@ const DownloadIcon = ({ size = 18 }) => (
     <rect x="4" y="18" width="16" height="3" rx="1.5" />
   </svg>
 )
+const ShareIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="5" r="2.6" />
+    <circle cx="6" cy="12" r="2.6" />
+    <circle cx="18" cy="19" r="2.6" />
+    <path d="m8.3 10.7 7.4-4.3M8.3 13.3l7.4 4.3" />
+  </svg>
+)
 
-// The "Download the app" button. Hidden once the app is installed.
-//   variant 'glass'  full-width button for the dark sign-in screen
-//   variant 'icon'   round icon for the dark headers
+const LINK_TEXT = 'Download the Spot Win app. Open this link in Chrome (Safari on iPhone) and tap "Download the app".'
+
+// Always visible, for everyone.
+//   In a browser: Download, which installs the app (or shows the steps).
+//   In the installed app: Share link, so the user can send it to their team.
+// variants: 'banner' (card at the top of a screen), 'glass' (sign-in page), 'icon' (header)
 export default function InstallButton({ variant = 'icon' }) {
   const [st, setSt] = useState({ canPrompt: false, installed: false, ios: false })
   const [help, setHelp] = useState(false)
-  const [done, setDone] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [linkSheet, setLinkSheet] = useState(false)
   useEffect(() => onInstall(setSt), [])
 
-  if (st.installed || done) return null
+  const link = `${location.origin}/login`
+  const sharing = st.installed
 
-  async function click() {
+  async function download() {
     if (st.canPrompt) {
       const r = await promptInstall()
-      if (r === 'accepted') setDone(true)
       if (r !== 'unavailable') return
     }
     setHelp(true)
   }
+
+  // The phone's own share menu (WhatsApp, Telegram, SMS...), else copy the link
+  async function share() {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Spot Win', text: LINK_TEXT, url: link })
+        return
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return
+    }
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      setLinkSheet(true)
+    }
+  }
+
+  const click = sharing ? share : download
+  const Icon = sharing ? ShareIcon : DownloadIcon
 
   return (
     <>
@@ -36,14 +70,18 @@ export default function InstallButton({ variant = 'icon' }) {
         <section className="anim-rise relative overflow-hidden rounded-2xl bg-ink text-paper p-3.5 sm:p-4 flex items-center gap-3 shadow-[0_16px_32px_-20px_rgba(0,0,0,0.7)]">
           <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-12 w-40 h-40 rounded-full bg-gold/25 blur-2xl" />
           <span className="relative w-11 h-11 rounded-2xl gold-gradient text-ink flex items-center justify-center shrink-0">
-            <DownloadIcon size={22} />
+            <Icon size={22} />
           </span>
           <span className="relative flex-1 min-w-0">
-            <span className="block font-semibold leading-tight">Get the Spot Win app</span>
-            <span className="block text-xs text-paper/60 mt-0.5">Install it on this {st.ios || /Android/.test(navigator.userAgent) ? 'phone' : 'computer'}. It opens from its own icon, full screen.</span>
+            <span className="block font-semibold leading-tight">{sharing ? 'Spot Win is installed' : 'Get the Spot Win app'}</span>
+            <span className="block text-xs text-paper/60 mt-0.5">
+              {sharing
+                ? 'Send the link to your team so they can download it too.'
+                : `Install it on this ${st.ios || /Android/.test(navigator.userAgent) ? 'phone' : 'computer'}. It opens from its own icon, full screen.`}
+            </span>
           </span>
           <button type="button" onClick={click} className="btn-hover relative shrink-0 h-10 px-4 rounded-full gold-gradient text-ink text-sm font-bold">
-            Download
+            {sharing ? (copied ? 'Link copied' : 'Share link') : 'Download'}
           </button>
         </section>
       ) : variant === 'glass' ? (
@@ -52,19 +90,19 @@ export default function InstallButton({ variant = 'icon' }) {
           onClick={click}
           className="w-full h-12 rounded-full border border-gold/45 bg-gold/10 text-gold font-semibold inline-flex items-center justify-center gap-2 backdrop-blur-md transition-colors hover:bg-gold hover:text-ink"
         >
-          <DownloadIcon />
-          Download the app
+          <Icon />
+          {sharing ? (copied ? 'Link copied' : 'Share the app link') : 'Download the app'}
         </button>
       ) : (
         <button
           type="button"
           onClick={click}
-          aria-label="Download the app"
-          title="Download the app"
+          aria-label={sharing ? 'Share the app link' : 'Download the app'}
+          title={sharing ? 'Share the app link' : 'Download the app'}
           className="btn-hover shrink-0 inline-flex items-center justify-center gap-1.5 h-10 w-10 lg:w-auto lg:px-4 rounded-full border border-gold/50 text-gold text-sm font-semibold hover:bg-gold hover:text-ink"
         >
-          <DownloadIcon size={17} />
-          <span className="hidden lg:inline">Download app</span>
+          <Icon size={17} />
+          <span className="hidden lg:inline">{sharing ? (copied ? 'Copied' : 'Share app') : 'Download app'}</span>
         </button>
       )}
 
@@ -91,6 +129,13 @@ export default function InstallButton({ variant = 'icon' }) {
             ))}
           </ol>
           <p className="text-xs text-ink/50">The Spot Win icon then appears on the home screen. Sign in once and it stays signed in.</p>
+        </Sheet>
+      )}
+
+      {linkSheet && (
+        <Sheet title="Share the app link" onClose={() => setLinkSheet(false)} footer={<Button onClick={() => setLinkSheet(false)}>Done</Button>}>
+          <p className="text-sm text-ink/70">Copy this link and send it to your team. They open it in Chrome (Safari on iPhone) and tap Download the app.</p>
+          <input readOnly value={link} onFocus={(e) => e.target.select()} className="w-full h-12 rounded-xl border border-ink/15 px-4 text-[15px] font-semibold" />
         </Sheet>
       )}
     </>

@@ -167,7 +167,7 @@ export default function Home() {
       </header>
 
       <div className="flex-1 px-4 min-[380px]:px-5 pt-5 pb-6 max-w-md w-full mx-auto stagger">
-        <div className="empty:hidden mb-4" style={{ '--i': 0 }}>
+        <div className="mb-4" style={{ '--i': 0 }}>
           <InstallButton variant="banner" />
         </div>
         <div className="grid grid-cols-2 gap-3" style={{ '--i': 0 }}>
