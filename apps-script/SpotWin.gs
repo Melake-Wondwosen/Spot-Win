@@ -247,7 +247,10 @@ function usersTable_() {
       agent: c.agent > -1 ? String(row[c.agent]).trim() : '',
       active: ['no', 'false', 'inactive', 'blocked', '0'].indexOf(act) < 0,
       // Blank until the user picks their own password; an admin setting a password clears it
-      changed: c.changed > -1 && String(row[c.changed]).trim() !== ''
+      // passwordChanged: blank = never asked, "reset ..." = an admin set a new
+      // password (ask again), anything else = already asked (changed, kept or offered)
+      changed: c.changed > -1 && String(row[c.changed]).trim() !== '' && !/^reset/i.test(String(row[c.changed]).trim()),
+      reset: c.changed > -1 && /^reset/i.test(String(row[c.changed]).trim())
     });
   }
   return { sheet: sheet, c: c, users: users };
@@ -414,6 +417,16 @@ function paymentLogin_(b) {
   // Sales users can't sign in without a GPS fix. Managers and admins on a PC may not have one.
   if (u.role === 'sales' && (loc.lat == null || loc.lng == null)) fail_('Location is required to sign in.');
 
+  // The new-password step shows once only. It shows when an admin has just set
+  // the password, or when this is the user's very first sign-in. The moment it
+  // is offered it is marked as asked, so the next sign-in never shows it again,
+  // whether or not their Save or Skip reached the server.
+  var ask = false;
+  if (!u.changed) {
+    ask = u.reset || !findRow_(sheet_('Logins'), 'userId', u.id);
+    markPassword_(u.id, 'offered ' + now_());
+  }
+
   // One atomic row, no lock, so sign-in never queues behind other users
   appendFast_(sheet_('Logins'), {
     date: now_(), userId: u.id, userName: u.name, role: u.role,
@@ -425,8 +438,24 @@ function paymentLogin_(b) {
   }
   var pub = publicUser_(u);
   pub.token = makeToken_(u);
-  pub.mustChange = !u.changed;
+  pub.mustChange = ask;
   return { user: pub, settings: readSettings_() };
+}
+
+// Writes the passwordChanged cell for one user, adding the column if needed
+function markPassword_(id, value) {
+  var tb = usersTable_();
+  if (tb.c.changed < 0) {
+    tb.sheet.getRange(1, tb.sheet.getLastColumn() + 1).setValue('passwordChanged').setFontWeight('bold');
+    tb = usersTable_();
+  }
+  var u = tb.users.filter(function (x) { return x.id === String(id); })[0];
+  if (!u) return false;
+  var cell = tb.sheet.getRange(u.row, tb.c.changed + 1);
+  cell.setNumberFormat('@');
+  cell.setValue(value);
+  clearUsersCache_();
+  return true;
 }
 
 // First sign-in (or after an admin reset): the user picks their own password,
@@ -435,21 +464,9 @@ function changePassword_(b) {
   var t = readToken_(b.token);
   if (!t) fail_('Session not valid. Sign in again.');
   if (b.keep) {
-    var gone = null;
-    withLock_(function () {
-      var tk = usersTable_();
-      if (tk.c.changed < 0) {
-        tk.sheet.getRange(1, tk.sheet.getLastColumn() + 1).setValue('passwordChanged').setFontWeight('bold');
-        tk = usersTable_();
-      }
-      var me = tk.users.filter(function (x) { return x.id === t.id; })[0];
-      if (!me || !me.active) { gone = 'This account is no longer active.'; return; }
-      var cell = tk.sheet.getRange(me.row, tk.c.changed + 1);
-      cell.setNumberFormat('@');
-      cell.setValue('kept ' + now_());
-    });
-    if (gone) fail_(gone);
-    clearUsersCache_();
+    var who = findUser_(t.id);
+    if (!who || !who.active) fail_('This account is no longer active.');
+    markPassword_(t.id, 'kept ' + now_());
     return {};
   }
   var np = String(b.newPassword || '').trim();
@@ -1267,7 +1284,7 @@ function saveUser_(b) {
     // A password set by an admin is temporary: the user picks their own at the next sign-in
     if (password) {
       put(t.c.pass, password);
-      put(t.c.changed, '');
+      put(t.c.changed, 'reset ' + now_());
     }
     clearUsersCache_();
   });

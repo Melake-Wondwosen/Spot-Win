@@ -41,7 +41,7 @@ Everyone signs in on the same page. The Users tab decides where they land.
 
 Users tab columns: id, username, password, name, staffId, role, region, agent, active. A sales user's agent decides which outlets download to their phone (their region is used when agent is blank) and which ASM sees them. An ASM can cover several agents: separate the names with commas. Put `no` in active to block someone; they lose access within a minute.
 
-The first time someone signs in with the password an admin gave them, the app offers to change it: they pick their own (at least 6 characters, no spaces, different from the one they were given) or press "Keep my current password". Either way they aren't asked again; the `passwordChanged` column records the date, or "kept" and the date. Setting a new password in the admin console clears that column, so they're asked again at their next sign-in.
+The new-password step appears once: at someone's very first sign-in, or the first sign-in after an admin sets them a new password. They save a new password or skip, and it never appears again. The server marks it as asked the moment it is shown, so it doesn't depend on the Save or Skip reaching the server. The `passwordChanged` column shows the date they changed it, "kept" or "offered" and a date, or "reset" and a date after an admin reset.
 
 ASMs and RTMs also record visits: the Record a visit button on their team view opens the same five steps sales people use, and the Team button takes them back. Their visits count in their team's totals.
 
