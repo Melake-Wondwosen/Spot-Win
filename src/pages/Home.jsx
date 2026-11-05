@@ -11,6 +11,7 @@ import { clearDraft, clearUser, getCounts, getDraft, getLastSync, getLog, getQue
 import { dayStart, time } from '../time'
 import { ACTIVITIES, STEP_COUNT } from '../config'
 import Bell from '../components/Bell'
+import InstallButton from '../components/InstallButton'
 import { amountText, Avatar, Button, LocationBlocked, Notice, Pattern, Sheet, SignOutButton } from '../components/ui'
 
 const STEP_NAMES = ['Outlet', 'Activity', 'Investment', 'Payment receipt', 'Engagement photo']
@@ -142,6 +143,7 @@ export default function Home() {
               <span className="hidden min-[440px]:inline">Team</span>
             </button>
           )}
+          <InstallButton />
           <Bell />
           <SignOutButton onClick={signOut} />
         </div>

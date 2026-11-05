@@ -5,6 +5,7 @@ import { MANAGER_REFRESH_MS } from '../config'
 import { clearUser, getUser } from '../storage'
 import { Avatar, SignOutButton, Spinner, amountText, birr, whole } from '../components/ui'
 import Bell from '../components/Bell'
+import InstallButton from '../components/InstallButton'
 import ExportButton from '../components/ExportButton'
 import Period from '../components/Period'
 import { clearNotesMemory, setServerNotes } from '../notes'
@@ -112,6 +113,7 @@ export default function Manager() {
                 Admin console
               </Link>
             )}
+            <InstallButton />
             <Bell />
             <SignOutButton onClick={signOut} />
           </div>

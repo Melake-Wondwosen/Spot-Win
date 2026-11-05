@@ -4,6 +4,7 @@ import { getUser } from '../storage'
 import { homeFor } from '../roles'
 import { MovingPattern, WatchingLogo } from '../components/ui'
 import SignInForm from '../components/SignInForm'
+import InstallButton from '../components/InstallButton'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -54,6 +55,11 @@ export default function Login() {
         <div className="mt-7" style={{ '--i': 3 }}>
           <SignInForm onWatch={watch} onStatus={status} onStep={setStep} onDone={(u) => navigate(homeFor(u), { replace: true })} />
         </div>
+        {step === 'signin' && (
+          <div className="mt-2" style={{ '--i': 4 }}>
+            <InstallButton variant="glass" />
+          </div>
+        )}
       </div>
     </main>
   )

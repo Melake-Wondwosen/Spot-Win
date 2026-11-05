@@ -4,6 +4,7 @@ import { adminData } from '../api'
 import { clearNotesMemory, setServerNotes } from '../notes'
 import { clearUser, getUser } from '../storage'
 import Bell from '../components/Bell'
+import InstallButton from '../components/InstallButton'
 import { Avatar, Notice, SignOutButton, Toast } from '../components/ui'
 import { FlagsTab, MessagesTab, OutletsTab, RequestsTab, SettingsTab, UsersTab } from './tabs'
 import Analysis from './Analysis'
@@ -83,6 +84,7 @@ export default function Admin() {
               </svg>
               <span className="hidden sm:inline">Manager view</span>
             </Link>
+            <InstallButton />
             <Bell onOpenItem={(n) => (n.kind === 'request' ? setTab('requests') : n.kind === 'flag' ? setTab('flags') : null)} />
             <SignOutButton onClick={signOut} />
           </div>

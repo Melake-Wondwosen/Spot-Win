@@ -205,7 +205,7 @@ export function Sheet({ title, onClose, children, footer }) {
   return (
     <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center">
       <div className="absolute inset-0 bg-ink/45 backdrop-blur-[2px] anim-fade" onClick={onClose} />
-      <div role="dialog" aria-label={title} className="anim-sheet relative w-full md:max-w-lg max-h-[92vh] flex flex-col bg-paper rounded-t-3xl md:rounded-3xl shadow-2xl">
+      <div role="dialog" aria-label={title} className="anim-sheet relative w-full md:max-w-lg max-h-[92vh] flex flex-col bg-paper text-ink rounded-t-3xl md:rounded-3xl shadow-2xl">
         <div className="md:hidden mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-ink/15" />
         <div className="flex items-center justify-between px-5 pt-3 md:pt-5">
           <h2 className="font-serif text-xl">{title}</h2>

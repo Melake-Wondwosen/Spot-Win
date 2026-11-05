@@ -4,10 +4,12 @@ import App from './App'
 import { startGuard } from './guard'
 import { startHover } from './hover'
 import { persistStorage } from './db'
+import { startInstallWatch } from './install'
 import { DEMO } from './config'
 import './index.css'
 
 startGuard()
+startInstallWatch()
 startHover()
 persistStorage()
 
