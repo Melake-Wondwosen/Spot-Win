@@ -39,7 +39,8 @@ export const stepReady = [
   (d) => !!d.activity,
   (d) => !!d.unit && amountValue(d.unit, d.amount) != null,
   (d) => !!d.receipt,
-  (d) => !!d.engagement,
+  // The engagement photo is optional
+  () => true,
 ]
 
 /* ---------- step 1: outlet ---------- */
@@ -529,13 +530,13 @@ export function StepReceipt({ data, onPhoto, removePhoto, busy, photoKey, openVi
   )
 }
 
-export function StepEngagement({ data, onPhoto, busy, photoKey, openViewer, goTo, finish, finishing, error }) {
+export function StepEngagement({ data, onPhoto, removePhoto, busy, photoKey, openViewer, goTo, finish, finishing, error }) {
   const url = useStoredPhoto(photoKey('engagement'), data.engagement?.v)
   const receiptUrl = useStoredPhoto(photoKey('receipt'), data.receipt?.v)
   const amount = amountValue(data.unit, data.amount)
   return (
     <>
-      <Title n={5} sub="Camera only. The date, time, Outlet ID and your name are stamped on it.">
+      <Title n={5} sub="Optional. Camera only. The date, time, Outlet ID and your name are stamped on it.">
         Take a photo of the engagement
       </Title>
       {data.engagement ? (
@@ -543,6 +544,9 @@ export function StepEngagement({ data, onPhoto, busy, photoKey, openViewer, goTo
           <PickButton camera busy={busy} onFile={(f) => onPhoto('engagement', f, 'camera')}>
             Retake
           </PickButton>
+          <Button variant="ghost" onClick={() => removePhoto('engagement')} disabled={busy}>
+            Remove
+          </Button>
         </Preview>
       ) : (
         <PhotoPicker onFile={(f) => onPhoto('engagement', f, 'camera')} gallery={false} busy={busy} />
@@ -562,12 +566,12 @@ export function StepEngagement({ data, onPhoto, busy, photoKey, openViewer, goTo
         </SummaryRow>
         <div className="grid grid-cols-2 gap-3 px-5 py-4 border-t border-ink/[0.07]">
           <Thumb label="Receipt" url={receiptUrl} onEdit={() => goTo(3)} />
-          <Thumb label="Engagement" url={url} onEdit={() => goTo(4)} />
+          <Thumb label="Engagement" url={url} empty={!data.engagement} onEdit={() => goTo(4)} />
         </div>
       </section>
 
       {error && <Notice className="mt-4">{error}</Notice>}
-      <Button variant="gold" className="mt-4 min-h-[60px] text-lg" disabled={!data.engagement || finishing || busy} onClick={finish}>
+      <Button variant="gold" className="mt-4 min-h-[60px] text-lg" disabled={finishing || busy} onClick={finish}>
         {finishing ? <Spinner /> : 'Finish'}
       </Button>
     </>
@@ -586,14 +590,22 @@ function SummaryRow({ label, children, onEdit }) {
   )
 }
 
-function Thumb({ label, url, onEdit }) {
+function Thumb({ label, url, empty, onEdit }) {
   return (
     <div>
-      <div className="thumb-hover aspect-[4/3] rounded-2xl bg-mist overflow-hidden">{url ? <img src={url} alt={label} className="w-full h-full object-cover" /> : <span className="block w-full h-full skeleton" />}</div>
+      <div className="thumb-hover aspect-[4/3] rounded-2xl bg-mist overflow-hidden">
+        {url ? (
+          <img src={url} alt={label} className="w-full h-full object-cover" />
+        ) : empty ? (
+          <span className="flex w-full h-full items-center justify-center text-xs text-ink/45">No photo</span>
+        ) : (
+          <span className="block w-full h-full skeleton" />
+        )}
+      </div>
       <div className="flex items-center justify-between mt-1.5 text-xs">
         <span className="text-ink/55">{label}</span>
         <button type="button" onClick={onEdit} className="link-hover font-semibold text-gold-dark">
-          Edit
+          {empty ? 'Add' : 'Edit'}
         </button>
       </div>
     </div>

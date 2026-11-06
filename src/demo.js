@@ -214,7 +214,7 @@ export async function demoCall(action, p) {
         id: v.id, status: 'Saved', date: v.finishedAt, userId: 'S-01', userName: v.userName, staffId: 'HB1040', outletId: o.id, outletName: o.name, division: o.division, agent: o.agent,
         parentTerritory: o.parentTerritory, territory: o.territory, activity: v.activity, investmentUnit: v.investmentUnit, amount: v.amount,
         receiptPhotoId: v.receipt.photoId, receiptUrl: v.receipt.url, receiptSource: v.receipt.source, receiptAt: v.receipt.at,
-        engagementPhotoId: v.engagement.photoId, engagementUrl: v.engagement.url, engagementAt: v.engagement.at,
+        engagementPhotoId: v.engagement?.photoId || '', engagementUrl: v.engagement?.url || '', engagementAt: v.engagement?.at || '',
         startedAt: v.startedAt, startLat: v.startLat, startLng: v.startLng, startAccuracy: v.startAccuracy, lat: v.lat, lng: v.lng, accuracy: v.accuracy,
         distanceM: v.lat ? Math.round(Math.abs(v.lat - o.lat) * 111000) : '', device: v.device, appVersion: v.appVersion, uploadedAt: new Date().toISOString(),
       })

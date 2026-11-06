@@ -1,6 +1,6 @@
 # Spot Win
 
-Habesha's engagement payment record app. Sales team members record every payment they make at an outlet: where and when, which outlet, which activity, how much in Birr or crates, a photo of the receipt and a photo of the engagement. Managers watch their division live. Managers and admins download the records as an Excel file in one click.
+Habesha's engagement payment record app. Sales team members record every payment they make at an outlet: where and when, which outlet, which activity, how much in Birr or crates, a photo of the receipt and, if they want, a photo of the engagement. Managers watch their division live. Managers and admins download the records as an Excel file in one click.
 
 Built from the Habesha Outlet Survey app. White, gold and black only. Works on phones from 320 px up to wide desktops with no sideways scrolling.
 
@@ -55,7 +55,7 @@ Admin > App shows who has Spot Win installed (opened from its home-screen icon),
 
 1. The phone keeps the visit and both photos in IndexedDB after every answer, so a reload or a flat battery loses nothing.
 2. Finish puts the visit in the phone's queue and goes home. Nothing waits on the network.
-3. The queue uploads the receipt photo, the engagement photo, then the visit row. Each step is safe to send twice: same visit ID and kind = one photo, same visit ID = one row.
+3. The queue uploads the receipt photo, the engagement photo if one was taken, then the visit row. Each step is safe to send twice: same visit ID and kind = one photo, same visit ID = one row.
 4. Photos leave the phone only once the server has the visit row.
 
 ## Alerts

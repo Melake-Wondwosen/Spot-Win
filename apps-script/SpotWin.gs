@@ -1112,18 +1112,21 @@ function addVisit_(b) {
 
   var receipt = photoRow_(id + '_receipt');
   var engagement = photoRow_(id + '_engagement');
+  var r = v.receipt || {}, e = v.engagement || {};
   if (!receipt) fail_('The visit has no receipt photo. Sync again.');
-  if (!engagement) fail_('The visit has no engagement photo. Sync again.');
+  // The engagement photo is optional, but one the phone says it took must have arrived
+  if (!engagement && (e.photoId || e.hash)) fail_('The visit has no engagement photo. Sync again.');
+  engagement = engagement || {};
 
   var settings = readSettings_();
-  var r = v.receipt || {}, e = v.engagement || {};
   var row = {
     id: id, status: 'Saved', date: isoOr_(v.finishedAt, now_()), userId: user.id, userName: user.name, staffId: user.staffId || '',
     outletId: outletId, outletName: outlet.outletName, division: outlet.division, agent: outlet.agent, parentTerritory: outlet.parentTerritory, territory: outlet.territory,
     activity: v.activity, investmentUnit: unit, amount: amount,
     receiptPhotoId: receipt.id, receiptUrl: String(receipt.url), receiptSource: String(receipt.source), receiptHash: String(receipt.hash), receiptAt: isoOr_(r.at, String(receipt.takenAt)),
-    engagementPhotoId: engagement.id, engagementUrl: String(engagement.url), engagementHash: String(engagement.hash), engagementAt: isoOr_(e.at, String(engagement.takenAt)),
-    engagementLat: num_(e.lat), engagementLng: num_(e.lng),
+    engagementPhotoId: engagement.id || '', engagementUrl: String(engagement.url || ''), engagementHash: String(engagement.hash || ''),
+    engagementAt: engagement.id ? isoOr_(e.at, String(engagement.takenAt || '')) : '',
+    engagementLat: engagement.id ? num_(e.lat) : '', engagementLng: engagement.id ? num_(e.lng) : '',
     startedAt: isoOr_(v.startedAt, ''), startLat: num_(v.startLat), startLng: num_(v.startLng), startAccuracy: num_(v.startAccuracy),
     lat: num_(v.lat), lng: num_(v.lng), accuracy: num_(v.accuracy), distanceM: '',
     device: String(v.device || '').slice(0, 200), appVersion: String(v.appVersion || '').slice(0, 20), uploadedAt: now_()

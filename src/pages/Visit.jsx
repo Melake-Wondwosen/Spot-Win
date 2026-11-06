@@ -180,7 +180,7 @@ export default function Visit() {
       amount,
       highConfirmed: !!data.highOk,
       receipt: { ...data.receipt },
-      engagement: { ...data.engagement },
+      engagement: data.engagement ? { ...data.engagement } : null,
       finishedAt: now,
       lat: fix?.lat ?? '',
       lng: fix?.lng ?? '',
@@ -247,6 +247,7 @@ export default function Visit() {
       key="e"
       data={data}
       onPhoto={onPhoto}
+      removePhoto={removePhoto}
       busy={busyPhoto === 'engagement'}
       photoKey={photoKey}
       openViewer={(src) => setViewer({ src, caption: 'Engagement photo' })}

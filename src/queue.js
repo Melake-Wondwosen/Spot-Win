@@ -3,9 +3,9 @@ import { photoDel, photoGet } from './db'
 import { blobToBase64 } from './photo'
 import { getQueue, setQueueWhy, updateLog, updateQueue } from './storage'
 
-// Finish never waits on the network: the visit and its two photos go into the
+// Finish never waits on the network: the visit and its photos go into the
 // phone's queue and this uploads them in the background. Order per visit:
-// receipt photo, engagement photo, then the visit row. Each step is safe to
+// receipt photo, engagement photo (when one was taken), then the visit row. Each step is safe to
 // send twice, so a lost reply never makes a duplicate.
 const subs = new Set()
 let state = { busy: false, pending: 0, why: '' }
@@ -39,9 +39,9 @@ async function sendPhoto(v, kind) {
 }
 
 async function sendOne(v) {
-  for (const kind of KINDS) if (!v[kind].photoId) v[kind].photoId = await sendPhoto(v, kind)
+  for (const kind of KINDS) if (v[kind] && !v[kind].photoId) v[kind].photoId = await sendPhoto(v, kind)
   const { receipt, engagement, ...rest } = v
-  await addVisit({ ...rest, receipt: { ...receipt }, engagement: { ...engagement } })
+  await addVisit({ ...rest, receipt: { ...receipt }, engagement: engagement ? { ...engagement } : null })
   // Photos leave the phone only once the server has the visit row
   await updateQueue((q) => q.filter((x) => x.id !== v.id))
   await Promise.all(KINDS.flatMap((k) => [photoDel(photoKey(v.id, k)), photoDel(photoKey(v.id, k) + '_t')])).catch(() => {})
