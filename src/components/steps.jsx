@@ -3,7 +3,7 @@ import { requestOutlet } from '../api'
 import { photoGet } from '../db'
 import { latestFix } from '../location'
 import { findOutlet, localOutlet, normOutletId } from '../outlets'
-import { ACTIVITIES, STEP_COUNT } from '../config'
+import { ACTIVITIES, isTransfer, MAX_TRANSFER_PHOTOS, STEP_COUNT } from '../config'
 import { getSettings } from '../storage'
 import { Button, Field, Notice, Sheet, Spinner, amountText, inputClass } from './ui'
 
@@ -277,6 +277,14 @@ const ACTIVITY_ICONS = {
       <circle cx="12" cy="10.3" r="1.2" />
     </>
   ),
+  mobile: (
+    <>
+      <rect x="4.5" y="3" width="10" height="18" rx="2.2" />
+      <path d="M8 17.5h3" />
+      <path d="M17.5 8.6a4.2 4.2 0 0 1 0 5.8" />
+      <path d="M20 6.4a7.6 7.6 0 0 1 0 10.2" />
+    </>
+  ),
 }
 
 export function StepActivity({ data, set }) {
@@ -288,6 +296,8 @@ export function StepActivity({ data, set }) {
       <div className="grid grid-cols-2 gap-3 stagger">
         {ACTIVITIES.map((a, i) => {
           const on = data.activity === a.label
+          // An odd last card takes the full row
+          const wide = ACTIVITIES.length % 2 === 1 && i === ACTIVITIES.length - 1
           return (
             <button
               key={a.key}
@@ -295,7 +305,7 @@ export function StepActivity({ data, set }) {
               style={{ '--i': i }}
               onClick={() => set({ activity: a.label })}
               aria-pressed={on}
-              className={`tilt spot relative min-h-[150px] rounded-3xl border p-4 text-left flex flex-col justify-between active:scale-[0.97] ${
+              className={`tilt spot relative ${wide ? 'col-span-2 min-h-[118px]' : 'min-h-[150px]'} rounded-3xl border p-4 text-left flex flex-col justify-between active:scale-[0.97] ${
                 on ? 'bg-ink text-paper border-ink spot-dark shadow-[0_20px_36px_-20px_rgba(0,0,0,0.7)]' : 'bg-white border-ink/12 hover:border-gold'
               }`}
               data-tilt="9"
@@ -499,7 +509,109 @@ function PickButton({ onFile, camera, busy, children, variant = 'ghost' }) {
   )
 }
 
-export function StepReceipt({ data, onPhoto, removePhoto, busy, photoKey, openViewer }) {
+// The visit's transfer photos in order: the first is stored as the receipt
+const transferPhotos = (data) => [...(data.receipt ? [{ key: 'receipt', meta: data.receipt }] : []), ...(data.more || []).map((p) => ({ key: p.kind, meta: p }))]
+
+function StoredImg({ storeKey, version, className = '' }) {
+  const url = useStoredPhoto(storeKey, version)
+  return url ? <img src={url} alt="" className={`w-full h-full object-cover ${className}`} draggable="false" /> : <span className="block w-full h-full skeleton" />
+}
+
+function TransferTile({ storeKey, version, n, onOpen, onRemove, busy }) {
+  const url = useStoredPhoto(storeKey, version)
+  return (
+    <div className="relative anim-pop">
+      <button type="button" onClick={() => url && onOpen(url)} className="thumb-hover block w-full aspect-[3/4] rounded-2xl bg-ink overflow-hidden">
+        {url ? <img src={url} alt={`Transfer ${n}`} className="w-full h-full object-cover" draggable="false" /> : <span className="block w-full h-full skeleton" />}
+      </button>
+      <span className="pointer-events-none absolute left-2 bottom-2 rounded-full bg-ink/80 text-paper text-[11px] font-semibold px-2.5 py-0.5">Transfer {n}</span>
+      <button
+        type="button"
+        aria-label={`Remove transfer ${n}`}
+        disabled={busy}
+        onClick={onRemove}
+        className="absolute right-2 top-2 w-8 h-8 rounded-full bg-paper/95 text-ink flex items-center justify-center shadow-md active:scale-90 disabled:opacity-50"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
+function AddTransferTile({ onFile, busy }) {
+  const cam = useRef(null)
+  const gal = useRef(null)
+  const pick = (source) => (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (f) onFile(f, source)
+  }
+  return (
+    <div className="aspect-[3/4] rounded-2xl border-2 border-dashed border-ink/15 bg-white flex flex-col items-center justify-center gap-2.5 p-3 text-center">
+      <input ref={cam} type="file" accept="image/*" capture="environment" className="hidden" onChange={pick('camera')} />
+      <input ref={gal} type="file" accept="image/*" className="hidden" onChange={pick('gallery')} />
+      {busy ? (
+        <span className="text-gold-dark flex flex-col items-center gap-2 text-sm font-semibold">
+          <Spinner />
+          Preparing photo...
+        </span>
+      ) : (
+        <>
+          <span className="text-sm font-semibold leading-snug">Add another transfer</span>
+          <button type="button" onClick={() => cam.current.click()} className="w-full rounded-xl bg-ink text-paper text-sm font-semibold py-2.5 active:scale-[0.97]">
+            Camera
+          </button>
+          <button type="button" onClick={() => gal.current.click()} className="w-full rounded-xl bg-white border border-ink/15 text-sm font-semibold py-2.5 active:scale-[0.97] hover:border-gold">
+            Gallery
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// Call Mobile Card Engagement: one photo per transfer, as many as were made
+function StepTransfers({ data, onPhoto, removePhoto, busy, photoKey, openViewer }) {
+  const photos = transferPhotos(data)
+  return (
+    <>
+      <Title n={4} sub="A photo or screenshot of each transfer. Add one for every transfer you made.">
+        Attach the transfer photos
+      </Title>
+      {photos.length === 0 ? (
+        <PhotoPicker onFile={(f, source) => onPhoto('receipt', f, source)} busy={busy} />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            {photos.map((p, i) => (
+              <TransferTile
+                key={p.key}
+                storeKey={photoKey(p.key)}
+                version={p.meta.v}
+                n={i + 1}
+                busy={busy}
+                onOpen={(url) => openViewer(url, `Transfer ${i + 1}`)}
+                onRemove={() => removePhoto(p.key)}
+              />
+            ))}
+            {photos.length < MAX_TRANSFER_PHOTOS && <AddTransferTile busy={busy} onFile={(f, source) => onPhoto('more', f, source)} />}
+          </div>
+          <p className="text-xs text-ink/50 mt-3">
+            {photos.length} transfer {photos.length === 1 ? 'photo' : 'photos'}. Add one for every transfer, up to {MAX_TRANSFER_PHOTOS}.
+          </p>
+        </>
+      )}
+    </>
+  )
+}
+
+export function StepReceipt(props) {
+  return isTransfer(props.data.activity) ? <StepTransfers {...props} /> : <StepPaperReceipt {...props} />
+}
+
+function StepPaperReceipt({ data, onPhoto, removePhoto, busy, photoKey, openViewer }) {
   const url = useStoredPhoto(photoKey('receipt'), data.receipt?.v)
   return (
     <>
@@ -534,12 +646,20 @@ export function StepEngagement({ data, onPhoto, removePhoto, busy, photoKey, ope
   const url = useStoredPhoto(photoKey('engagement'), data.engagement?.v)
   const receiptUrl = useStoredPhoto(photoKey('receipt'), data.receipt?.v)
   const amount = amountValue(data.unit, data.amount)
+  const transfer = isTransfer(data.activity)
+  const transfers = transfer ? transferPhotos(data) : []
   return (
     <>
-      <Title n={5} sub="Optional. Camera only. The date, time, Outlet ID and your name are stamped on it.">
-        Take a photo of the engagement
-      </Title>
-      {data.engagement ? (
+      {transfer ? (
+        <Title n={5} sub="No engagement photo is needed for this activity. Check the visit, then press Finish.">
+          Check and finish
+        </Title>
+      ) : (
+        <Title n={5} sub="Optional. Camera only. The date, time, Outlet ID and your name are stamped on it.">
+          Take a photo of the engagement
+        </Title>
+      )}
+      {transfer ? null : data.engagement ? (
         <Preview url={url} onOpen={() => url && openViewer(url)}>
           <PickButton camera busy={busy} onFile={(f) => onPhoto('engagement', f, 'camera')}>
             Retake
@@ -564,10 +684,30 @@ export function StepEngagement({ data, onPhoto, removePhoto, busy, photoKey, ope
         <SummaryRow label="Investment" onEdit={() => goTo(2)}>
           <span className="text-gold-dark">{amountText(data.unit, amount)}</span>
         </SummaryRow>
-        <div className="grid grid-cols-2 gap-3 px-5 py-4 border-t border-ink/[0.07]">
-          <Thumb label="Receipt" url={receiptUrl} onEdit={() => goTo(3)} />
-          <Thumb label="Engagement" url={url} empty={!data.engagement} onEdit={() => goTo(4)} />
-        </div>
+        {transfer ? (
+          <div className="px-5 py-4 border-t border-ink/[0.07]">
+            <div className="grid grid-cols-4 gap-2">
+              {transfers.map((p) => (
+                <span key={p.key} className="thumb-hover aspect-square rounded-xl bg-mist overflow-hidden">
+                  <StoredImg storeKey={photoKey(p.key)} version={p.meta.v} />
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-1.5 text-xs">
+              <span className="text-ink/55">
+                {transfers.length} transfer {transfers.length === 1 ? 'photo' : 'photos'}
+              </span>
+              <button type="button" onClick={() => goTo(3)} className="link-hover font-semibold text-gold-dark">
+                Edit
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 px-5 py-4 border-t border-ink/[0.07]">
+            <Thumb label="Receipt" url={receiptUrl} onEdit={() => goTo(3)} />
+            <Thumb label="Engagement" url={url} empty={!data.engagement} onEdit={() => goTo(4)} />
+          </div>
+        )}
       </section>
 
       {error && <Notice className="mt-4">{error}</Notice>}

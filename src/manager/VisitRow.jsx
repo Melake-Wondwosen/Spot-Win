@@ -6,17 +6,21 @@ import { ACTIVITIES } from '../config'
 
 const short = (a) => ACTIVITIES.find((x) => x.label === text(a))?.short || text(a)
 
-// One visit in a list: both photo thumbnails, when, where, who, how much
+// One visit in a list: two photo thumbnails, when, where, who, how much.
+// A transfer visit shows its first two transfer photos and how many more it has.
 export function VisitRow({ v, onOpen, showStatus }) {
+  const more = text(v.morePhotoIds).split(',').map((x) => x.trim()).filter(Boolean)
   const receipt = useThumb(text(v.receiptPhotoId))
-  const engagement = useThumb(text(v.engagementPhotoId))
+  const second = useThumb(text(v.engagementPhotoId) || more[0] || '')
+  const extra = text(v.engagementPhotoId) ? more.length : more.length - 1
   const off = isVoid(v)
   return (
     <li>
       <button type="button" onClick={onOpen} className={`row-hover w-full text-left px-2 -mx-2 rounded-lg py-2.5 flex items-center gap-3 ${off ? 'opacity-45' : ''}`}>
-        <span className="flex gap-1.5 shrink-0">
+        <span className="relative flex gap-1.5 shrink-0">
           <Mini src={receipt} />
-          <Mini src={engagement} />
+          <Mini src={second} />
+          {extra > 0 && <span className="absolute -right-1.5 -bottom-1.5 rounded-full bg-ink text-gold text-[10px] font-bold px-1.5 leading-4 tabular">+{extra}</span>}
         </span>
         {/* Phones: two lines. Wider screens: one row of columns. */}
         <span className="sm:hidden flex-1 min-w-0 text-sm">

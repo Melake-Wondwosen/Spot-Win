@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { deviceLabel } from '../api'
-import { photoDel, photoPut } from '../db'
+import { photoDel, photoGet, photoPut } from '../db'
 import { getFix, latestFix, locationError, locationMessage } from '../location'
 import { processPhoto } from '../photo'
 import { setActivity } from '../presence'
-import { flushQueue, KINDS, photoKey as keyFor } from '../queue'
+import { ALL_KINDS, flushQueue, MORE_KINDS, photoKey as keyFor } from '../queue'
 import { clearDraft, countDone, getDraft, getUser, setDraft, updateLog, updateQueue } from '../storage'
-import { APP_VERSION, RETURN_HOME_MS, STEP_COUNT } from '../config'
+import { APP_VERSION, isTransfer, MAX_TRANSFER_PHOTOS, RETURN_HOME_MS, STEP_COUNT } from '../config'
 import { dateYear, time, visitId } from '../time'
 import { Button, Sheet, Spinner, amountText } from '../components/ui'
 import Zoom from '../components/Zoom'
@@ -16,6 +16,8 @@ import { StepActivity, StepEngagement, StepInvestment, StepOutlet, StepReceipt, 
 const EMPTY = {
   outletId: '', outletName: '', division: '', agent: '', parentTerritory: '', territory: '', picked: false, offline: false,
   activity: '', unit: '', amount: '', highOk: false, receipt: null, engagement: null,
+  // transfer activities: the photos after the first one
+  more: [],
 }
 const fixOf = (f) => (f ? { lat: f.lat, lng: f.lng, accuracy: f.accuracy } : null)
 
@@ -112,8 +114,15 @@ export default function Visit() {
     go(step + 1)
   }
 
-  // Shrinks, hashes and (for the engagement photo) stamps the photo, then keeps it on the phone
+  // Shrinks, hashes and (for the engagement photo) stamps the photo, then keeps it on the phone.
+  // kind 'more' adds one more transfer photo (receipt2, receipt3, ...).
   async function onPhoto(kind, file, source) {
+    let key = kind
+    if (kind === 'more') {
+      const used = new Set((data.more || []).map((p) => p.kind))
+      key = MORE_KINDS.find((k) => !used.has(k))
+      if (!key) return setError(`Up to ${MAX_TRANSFER_PHOTOS} photos for one visit.`)
+    }
     setBusyPhoto(kind)
     setError('')
     try {
@@ -121,9 +130,13 @@ export default function Visit() {
       const fixP = quickFix()
       const stamp = kind === 'engagement' ? [`${dateYear(at)} ${time(at)}`, `Outlet ${data.outletId}`, user.name] : null
       const p = await processPhoto(file, stamp)
-      await Promise.all([photoPut(photoKey(kind), p.blob), photoPut(photoKey(kind) + '_t', p.thumb)])
+      const others = kind === 'engagement' ? [] : [kind === 'receipt' ? null : data.receipt, ...(data.more || [])]
+      if (others.some((o) => o?.hash === p.hash)) throw Object.assign(new Error('That photo is already added.'), { photo: true })
+      await Promise.all([photoPut(photoKey(key), p.blob), photoPut(photoKey(key) + '_t', p.thumb)])
       const fix = await fixP
-      set({ [kind]: { hash: p.hash, source, at, lat: fix?.lat ?? '', lng: fix?.lng ?? '', accuracy: fix?.accuracy ?? '', sizeKb: p.sizeKb, v: Date.now() } })
+      const meta = { hash: p.hash, source, at, lat: fix?.lat ?? '', lng: fix?.lng ?? '', accuracy: fix?.accuracy ?? '', sizeKb: p.sizeKb, v: Date.now() }
+      if (kind === 'more') setData((d) => ({ ...d, more: [...(d.more || []), { kind: key, ...meta }] }))
+      else set({ [kind]: meta })
     } catch (err) {
       setError(err?.photo ? err.message : `Could not use that photo. ${err?.message || ''}`.trim())
     } finally {
@@ -131,14 +144,31 @@ export default function Visit() {
     }
   }
 
+  const dropStored = (k) => Promise.all([photoDel(photoKey(k)), photoDel(photoKey(k) + '_t')]).catch(() => {})
+
   async function removePhoto(kind) {
-    await Promise.all([photoDel(photoKey(kind)), photoDel(photoKey(kind) + '_t')]).catch(() => {})
+    await dropStored(kind)
+    if (MORE_KINDS.includes(kind)) {
+      setData((d) => ({ ...d, more: (d.more || []).filter((p) => p.kind !== kind) }))
+      return
+    }
+    // The first transfer photo goes: the next one takes its place
+    const next = kind === 'receipt' && isTransfer(data.activity) ? data.more?.[0] : null
+    if (next) {
+      const [blob, thumb] = await Promise.all([photoGet(photoKey(next.kind)), photoGet(photoKey(next.kind) + '_t')])
+      if (blob) await photoPut(photoKey('receipt'), blob)
+      if (thumb) await photoPut(photoKey('receipt') + '_t', thumb)
+      await dropStored(next.kind)
+      const { kind: _old, ...meta } = next
+      setData((d) => ({ ...d, receipt: { ...meta, v: Date.now() }, more: (d.more || []).filter((p) => p.kind !== next.kind) }))
+      return
+    }
     set({ [kind]: null })
   }
 
   async function discard() {
     finished.current = true
-    await Promise.all(KINDS.flatMap((k) => [photoDel(photoKey(k)), photoDel(photoKey(k) + '_t')])).catch(() => {})
+    await Promise.all(ALL_KINDS.map(dropStored))
     await clearDraft()
     navigate('/', { replace: true })
   }
@@ -164,6 +194,7 @@ export default function Visit() {
     const now = new Date().toISOString()
     const amount = amountValue(data.unit, data.amount)
     const s = start.current
+    const transfer = isTransfer(data.activity)
     const record = {
       id,
       token: user.token,
@@ -180,7 +211,9 @@ export default function Visit() {
       amount,
       highConfirmed: !!data.highOk,
       receipt: { ...data.receipt },
-      engagement: data.engagement ? { ...data.engagement } : null,
+      // A transfer activity sends all its transfer photos and no engagement photo
+      more: transfer ? (data.more || []).map((p) => ({ ...p })) : [],
+      engagement: !transfer && data.engagement ? { ...data.engagement } : null,
       finishedAt: now,
       lat: fix?.lat ?? '',
       lng: fix?.lng ?? '',
@@ -195,6 +228,8 @@ export default function Visit() {
       { id, finishedAt: now, outletId: data.outletId, outletName: data.outletName, activity: data.activity, investmentUnit: data.unit, amount, uploaded: false },
     ])
     await clearDraft()
+    // Photos that don't go with this activity
+    await Promise.all((transfer ? ['engagement'] : (data.more || []).map((p) => p.kind)).map(dropStored))
     countDone(user.id)
     setActivity(`Finished visit at ${data.outletName || 'outlet'} (${data.outletId})`, true)
     setStatus(navigator.onLine ? 'saved' : 'queued')
@@ -242,7 +277,15 @@ export default function Visit() {
     <StepOutlet key="o" data={data} set={set} />,
     <StepActivity key="a" data={data} set={set} />,
     <StepInvestment key="i" data={data} set={set} />,
-    <StepReceipt key="r" data={data} onPhoto={onPhoto} removePhoto={removePhoto} busy={busyPhoto === 'receipt'} photoKey={photoKey} openViewer={(src) => setViewer({ src, caption: 'Payment receipt' })} />,
+    <StepReceipt
+      key="r"
+      data={data}
+      onPhoto={onPhoto}
+      removePhoto={removePhoto}
+      busy={busyPhoto === 'receipt' || busyPhoto === 'more'}
+      photoKey={photoKey}
+      openViewer={(src, caption) => setViewer({ src, caption: caption || 'Payment receipt' })}
+    />,
     <StepEngagement
       key="e"
       data={data}

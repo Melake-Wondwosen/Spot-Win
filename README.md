@@ -1,6 +1,6 @@
 # Spot Win
 
-Habesha's engagement payment record app. Sales team members record every payment they make at an outlet: where and when, which outlet, which activity, how much in Birr or crates, a photo of the receipt and, if they want, a photo of the engagement. Managers watch their division live. Managers and admins download the records as an Excel file in one click.
+Habesha's engagement payment record app. Sales team members record every payment they make at an outlet: where and when, which outlet, which activity, how much in Birr or crates, a photo of the receipt and, if they want, a photo of the engagement. For Call Mobile Card Engagement there is no receipt or engagement photo: they add one photo or screenshot per transfer, up to 10, and the visit keeps them all (Photos tab kinds receipt, receipt2 ... receipt10; Visits columns morePhotoIds and morePhotoUrls, added by themselves the first time). Managers watch their division live. Managers and admins download the records as an Excel file in one click.
 
 Built from the Habesha Outlet Survey app. White, gold and black only. Works on phones from 320 px up to wide desktops with no sideways scrolling.
 
@@ -83,7 +83,7 @@ Outlet coordinates for the distance check come from the Outlets tab, or from Lat
 
 ## Excel export
 
-One click on Export Excel (manager header, admin Visits tab) downloads `Spot_Win_<division>_<from>_to_<to>.xlsx` with three sheets: Visits (bold gold header, frozen, filters on every column, Addis times as real Excel dates, Outlet IDs as text, clickable photo links), Summary (by division and by activity) and Filters (who, when, which filters). Void visits are included only when the status filter asks for them. Every export is logged in the Exports tab.
+One click on Export Excel (manager header, admin Visits tab) downloads `Spot_Win_<division>_<from>_to_<to>.xlsx` with three sheets: Visits (bold gold header, frozen, filters on every column, Addis times as real Excel dates, Outlet IDs as text, clickable photo links, with Receipt photo 2, 3 ... columns when a transfer visit has more than one photo), Summary (by division and by activity) and Filters (who, when, which filters). Void visits are included only when the status filter asks for them. Every export is logged in the Exports tab.
 
 ## Speed
 

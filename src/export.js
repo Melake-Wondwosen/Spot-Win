@@ -63,6 +63,16 @@ function d(iso, z, dayOnly) {
   const v = serial(iso)
   return v == null ? null : { t: 'n', v: dayOnly ? Math.floor(v) : v, z }
 }
+// Transfer visits can have more than one receipt photo: Receipt photo 2, 3, ... after Receipt photo
+const moreUrls = (r) => t(r.morePhotoUrls).split(/\s+/).filter(Boolean)
+function withMorePhotos(rows) {
+  const most = rows.reduce((m, r) => Math.max(m, moreUrls(r).length), 0)
+  if (!most) return COLUMNS
+  const at = COLUMNS.findIndex((c) => c[0] === 'Receipt photo') + 1
+  const extra = Array.from({ length: most }, (_, i) => [`Receipt photo ${i + 2}`, 12, (r) => link(moreUrls(r)[i], 'Open receipt')])
+  return [...COLUMNS.slice(0, at), ...extra, ...COLUMNS.slice(at)]
+}
+
 function link(url, label) {
   const u = t(url)
   return u ? { t: 's', v: label, l: { Target: u, Tooltip: u } } : null
@@ -173,10 +183,11 @@ export async function exportVisits(filters, onProgress = () => {}, meta = {}) {
   const [XLSX, { unzipSync, zipSync }] = await Promise.all([import('xlsx').then((m) => m.default || m), import('fflate')])
   onProgress(`Building the file for ${rows.length.toLocaleString()} visits...`)
 
-  const head = COLUMNS.map((c) => ({ t: 's', v: c[0] }))
-  const body = rows.map((r) => COLUMNS.map((c) => c[2](r)))
-  const visits = sheetFrom(XLSX, [head, ...body], COLUMNS.map((c) => c[1]))
-  visits['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(1, body.length), c: COLUMNS.length - 1 } }) }
+  const columns = withMorePhotos(rows)
+  const head = columns.map((c) => ({ t: 's', v: c[0] }))
+  const body = rows.map((r) => columns.map((c) => c[2](r)))
+  const visits = sheetFrom(XLSX, [head, ...body], columns.map((c) => c[1]))
+  visits['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(1, body.length), c: columns.length - 1 } }) }
 
   const sum = summaryRows(rows)
   const summary = sheetFrom(XLSX, sum.out, [28, 10, 16, 12])
@@ -204,7 +215,7 @@ export async function exportVisits(filters, onProgress = () => {}, meta = {}) {
   XLSX.utils.book_append_sheet(wb, filterSheet, 'Filters')
   const raw = XLSX.write(wb, { type: 'array', bookType: 'xlsx', compression: true })
 
-  const linkCols = ['Receipt photo', 'Engagement photo'].map((name) => XLSX.utils.encode_col(COLUMNS.findIndex((c) => c[0] === name)))
+  const linkCols = columns.map((c, i) => (/ photo( \d+)?$/.test(c[0]) ? XLSX.utils.encode_col(i) : null)).filter(Boolean)
   const files = patch(unzipSync(new Uint8Array(raw)), [
     { freeze: true, boldRows: [0], linkCols },
     { freeze: false, boldRows: sum.bold },

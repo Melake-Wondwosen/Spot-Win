@@ -3,6 +3,7 @@ import { visitDetail, voidVisit } from '../api'
 import { Button, Field, Notice, Sheet, Spinner, amountText, inputClass } from '../components/ui'
 import Zoom from '../components/Zoom'
 import { dateTime, dateYear, time } from '../time'
+import { isTransfer } from '../config'
 import { flagLabel, num, text } from './calc'
 import { useFullPhoto } from './photos'
 import { VisitMap } from './MapView'
@@ -25,6 +26,8 @@ export default function VisitDetail({ id, onClose, canVoid, onChanged }) {
 
   const v = d?.visit
   const isVoid = text(v?.status).toLowerCase() === 'void'
+  const transfer = isTransfer(text(v?.activity))
+  const more = text(v?.morePhotoIds).split(',').map((x) => x.trim()).filter(Boolean)
   const mins = v ? (new Date(v.date) - new Date(v.startedAt)) / 60000 : null
 
   return (
@@ -44,8 +47,12 @@ export default function VisitDetail({ id, onClose, canVoid, onChanged }) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Photo id={text(v.receiptPhotoId)} label={`Receipt · ${text(v.receiptSource) === 'gallery' ? 'gallery' : 'camera'}`} onZoom={setZoom} />
-            <Photo id={text(v.engagementPhotoId)} label="Engagement" onZoom={setZoom} />
+            <Photo id={text(v.receiptPhotoId)} label={`${transfer ? 'Transfer 1' : 'Receipt'} · ${text(v.receiptSource) === 'gallery' ? 'gallery' : 'camera'}`} onZoom={setZoom} />
+            {more.map((pid, i) => (
+              <Photo key={pid} id={pid} label={`Transfer ${i + 2}`} onZoom={setZoom} />
+            ))}
+            {/* A transfer visit has no engagement photo */}
+            {(!transfer || text(v.engagementPhotoId)) && <Photo id={text(v.engagementPhotoId)} label="Engagement" onZoom={setZoom} />}
           </div>
 
           {d.flags?.length > 0 && (

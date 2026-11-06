@@ -14,7 +14,12 @@ export const ACTIVITIES = [
   { key: 'waitress', label: 'Waitress Engagement', short: 'Waitress' },
   { key: 'consumer', label: 'Consumer Onspot Engagement', short: 'Consumer on-spot' },
   { key: 'owner', label: 'Outlet Owner Engagement', short: 'Outlet owner' },
+  // transfers: one or more photos of the transfers instead of a receipt, and no engagement photo
+  { key: 'mobile', label: 'Call Mobile Card Engagement', short: 'Mobile card', transfers: true },
 ]
+export const isTransfer = (activity) => !!ACTIVITIES.find((a) => a.label === activity)?.transfers
+// Photos per visit for a transfer activity
+export const MAX_TRANSFER_PHOTOS = 10
 
 // Defaults until the server sends the Settings tab
 // appCard: the gold "Get the Spot Win app" card on every screen, 'on' or 'off' (set by the admin)

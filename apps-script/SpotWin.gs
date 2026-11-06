@@ -84,7 +84,10 @@ function fail_(message) {
 var DEFAULT_OUTLET_SHEET_ID = '1tf0oQTnZG7a0zxZcYFzYXpeDf5Y57e_1fyvHLEdxcOk';
 var NATIONAL_TAB = 'National Outlet';
 
-var ACTIVITIES = ['Bar Staff Engagement', 'Waitress Engagement', 'Consumer Onspot Engagement', 'Outlet Owner Engagement'];
+var ACTIVITIES = ['Bar Staff Engagement', 'Waitress Engagement', 'Consumer Onspot Engagement', 'Outlet Owner Engagement', 'Call Mobile Card Engagement'];
+// Photo kinds: the receipt, up to 9 more receipt photos (one per mobile card transfer), the engagement photo
+var PHOTO_KIND = /^(receipt([2-9]|10)?|engagement)$/;
+var MORE_KIND = /^receipt([2-9]|10)$/;
 var DEFAULT_SETTINGS = { birrLimit: 20000, crateLimit: 200, distanceLimitM: 100 };
 // Demo accounts: they can still sign in, but nothing they do shows in any
 // view, total, alert or Excel export. Change the list in the Settings tab (testUsers).
@@ -98,7 +101,7 @@ var HEADERS = {
   Users: ['id', 'username', 'password', 'name', 'staffId', 'role', 'region', 'agent', 'active', 'passwordChanged'],
   Visits: ['id', 'status', 'date', 'userId', 'userName', 'staffId', 'outletId', 'outletName', 'division', 'agent', 'parentTerritory', 'territory',
     'activity', 'investmentUnit', 'amount',
-    'receiptPhotoId', 'receiptUrl', 'receiptSource', 'receiptHash', 'receiptAt',
+    'receiptPhotoId', 'receiptUrl', 'receiptSource', 'receiptHash', 'receiptAt', 'morePhotoIds', 'morePhotoUrls',
     'engagementPhotoId', 'engagementUrl', 'engagementHash', 'engagementAt', 'engagementLat', 'engagementLng',
     'startedAt', 'startLat', 'startLng', 'startAccuracy', 'lat', 'lng', 'accuracy', 'distanceM',
     'device', 'appVersion', 'uploadedAt', 'voidReason', 'voidBy', 'voidAt'],
@@ -119,7 +122,7 @@ var HEADERS = {
 var TEXT_COLS = ['id', 'username', 'password', 'name', 'staffId', 'role', 'region', 'active', 'status', 'date', 'userId', 'userName',
   'outletId', 'outletName', 'division', 'agent', 'parentTerritory', 'territory', 'activity', 'investmentUnit',
   'receiptPhotoId', 'receiptUrl', 'receiptSource', 'receiptHash', 'receiptAt', 'engagementPhotoId', 'engagementUrl', 'engagementHash', 'engagementAt',
-  'startedAt', 'device', 'appVersion', 'uploadedAt', 'voidReason', 'voidBy', 'voidAt', 'visitId', 'kind', 'fileId', 'url', 'hash', 'source', 'takenAt',
+  'morePhotoIds', 'morePhotoUrls', 'startedAt', 'device', 'appVersion', 'uploadedAt', 'voidReason', 'voidBy', 'voidAt', 'visitId', 'kind', 'fileId', 'url', 'hash', 'source', 'takenAt',
   'lastSeen', 'state', 'locTime', 'type', 'detail', 'resolvedBy', 'resolvedAt', 'key', 'requestedBy', 'requestedByName', 'createdAt', 'updatedAt',
   'fromId', 'fromName', 'target', 'title', 'body', 'filters', 'thumb', 'installedAt', 'lastOpenAt', 'lastMode'];
 
@@ -995,7 +998,7 @@ function uploadPhoto_(b) {
   var user = findUser_(t.id);
   if (!user || !user.active) fail_('This account is no longer active.');
   var visitId = cleanVisitId_(b.visitId);
-  var kind = b.kind === 'engagement' ? 'engagement' : b.kind === 'receipt' ? 'receipt' : fail_('Photo kind is not valid.');
+  var kind = PHOTO_KIND.test(String(b.kind || '')) ? String(b.kind) : fail_('Photo kind is not valid.');
   var photoId = visitId + '_' + kind;
 
   var have = photoRow_(photoId);
@@ -1025,13 +1028,13 @@ function uploadPhoto_(b) {
   }
 
   // The same receipt file on another visit
-  if (kind === 'receipt' && row.hash) {
+  if (kind !== 'engagement' && row.hash) {
     var sheet = sheet_('Photos');
     var h = headers_(sheet);
     var hc = h.indexOf('hash') + 1;
     var others = sheet.getRange(2, hc, Math.max(1, sheet.getLastRow() - 1), 1).createTextFinder(row.hash).matchEntireCell(true).findAll()
       .map(function (cell) { return sheet.getRange(cell.getRow(), 1, 1, h.length).getValues()[0]; })
-      .filter(function (r) { return String(r[h.indexOf('kind')]) === 'receipt' && String(r[h.indexOf('visitId')]) !== visitId; })
+      .filter(function (r) { return String(r[h.indexOf('kind')]) !== 'engagement' && String(r[h.indexOf('visitId')]) !== visitId; })
       .map(function (r) { return String(r[h.indexOf('visitId')]); });
     if (others.length) {
       withLock_(function () { addFlag_(user, visitId, 'duplicate-receipt', 'Same receipt as ' + others.join(', ') + ' (this visit ' + visitId + ')'); });
@@ -1103,7 +1106,7 @@ function addVisit_(b) {
   var outletId = normId_(v.outletId);
   var outlet = findOutlet_(outletId);
   if (!outlet) fail_('Outlet ID ' + outletId + ' is not in the outlet data.');
-  if (ACTIVITIES.indexOf(v.activity) < 0) fail_('Choose one of the four activities.');
+  if (ACTIVITIES.indexOf(v.activity) < 0) fail_('Choose one of the activities.');
   var unit = v.investmentUnit === 'Crate' ? 'Crate' : v.investmentUnit === 'Birr' ? 'Birr' : fail_('Choose Birr or Crate.');
   var amount = Number(v.amount);
   if (!(amount > 0)) fail_('The amount must be above zero.');
@@ -1117,6 +1120,14 @@ function addVisit_(b) {
   // The engagement photo is optional, but one the phone says it took must have arrived
   if (!engagement && (e.photoId || e.hash)) fail_('The visit has no engagement photo. Sync again.');
   engagement = engagement || {};
+  // More receipt photos, one per mobile card transfer. Each must have arrived.
+  var more = (Array.isArray(v.more) ? v.more : []).slice(0, 9).map(function (m) {
+    var k = String(m && m.kind || '');
+    if (!MORE_KIND.test(k)) fail_('Photo kind is not valid.');
+    var p = photoRow_(id + '_' + k);
+    if (!p) fail_('The visit is missing a receipt photo. Sync again.');
+    return p;
+  });
 
   var settings = readSettings_();
   var row = {
@@ -1124,6 +1135,7 @@ function addVisit_(b) {
     outletId: outletId, outletName: outlet.outletName, division: outlet.division, agent: outlet.agent, parentTerritory: outlet.parentTerritory, territory: outlet.territory,
     activity: v.activity, investmentUnit: unit, amount: amount,
     receiptPhotoId: receipt.id, receiptUrl: String(receipt.url), receiptSource: String(receipt.source), receiptHash: String(receipt.hash), receiptAt: isoOr_(r.at, String(receipt.takenAt)),
+    morePhotoIds: more.map(function (p) { return p.id; }).join(','), morePhotoUrls: more.map(function (p) { return String(p.url); }).join('\n'),
     engagementPhotoId: engagement.id || '', engagementUrl: String(engagement.url || ''), engagementHash: String(engagement.hash || ''),
     engagementAt: engagement.id ? isoOr_(e.at, String(engagement.takenAt || '')) : '',
     engagementLat: engagement.id ? num_(e.lat) : '', engagementLng: engagement.id ? num_(e.lng) : '',
@@ -1157,7 +1169,7 @@ function isoOr_(v, fallback) {
 }
 
 var VISIT_LIST_FIELDS = ['id', 'status', 'date', 'userId', 'userName', 'staffId', 'outletId', 'outletName', 'division', 'agent', 'parentTerritory', 'territory',
-  'activity', 'investmentUnit', 'amount', 'receiptPhotoId', 'engagementPhotoId', 'lat', 'lng', 'distanceM', 'startedAt'];
+  'activity', 'investmentUnit', 'amount', 'receiptPhotoId', 'engagementPhotoId', 'morePhotoIds', 'lat', 'lng', 'distanceM', 'startedAt'];
 
 function pickFields_(o, fields) {
   var out = {};

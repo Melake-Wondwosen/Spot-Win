@@ -215,6 +215,7 @@ export async function demoCall(action, p) {
         parentTerritory: o.parentTerritory, territory: o.territory, activity: v.activity, investmentUnit: v.investmentUnit, amount: v.amount,
         receiptPhotoId: v.receipt.photoId, receiptUrl: v.receipt.url, receiptSource: v.receipt.source, receiptAt: v.receipt.at,
         engagementPhotoId: v.engagement?.photoId || '', engagementUrl: v.engagement?.url || '', engagementAt: v.engagement?.at || '',
+        morePhotoIds: (v.more || []).map((m) => m.photoId).join(','), morePhotoUrls: (v.more || []).map((m) => m.url).join('\n'),
         startedAt: v.startedAt, startLat: v.startLat, startLng: v.startLng, startAccuracy: v.startAccuracy, lat: v.lat, lng: v.lng, accuracy: v.accuracy,
         distanceM: v.lat ? Math.round(Math.abs(v.lat - o.lat) * 111000) : '', device: v.device, appVersion: v.appVersion, uploadedAt: new Date().toISOString(),
       })

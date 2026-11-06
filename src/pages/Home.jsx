@@ -6,7 +6,7 @@ import { locationMessage, onLocation } from '../location'
 import { addLocalNote, clearNotesMemory, setServerNotes } from '../notes'
 import { clearPack, syncPack } from '../outlets'
 import { setActivity, stopPresence } from '../presence'
-import { flushQueue, KINDS, onQueue, photoKey, refreshQueueCount } from '../queue'
+import { ALL_KINDS, flushQueue, onQueue, photoKey, refreshQueueCount } from '../queue'
 import { clearDraft, clearUser, getCounts, getDraft, getLastSync, getLog, getQueueWhy, getUser, setLastSync, updateLog } from '../storage'
 import { dayStart, time } from '../time'
 import { ACTIVITIES, STEP_COUNT } from '../config'
@@ -107,7 +107,7 @@ export default function Home() {
   }
 
   async function startNew() {
-    if (draft) await Promise.all(KINDS.flatMap((k) => [photoDel(photoKey(draft.id, k)), photoDel(photoKey(draft.id, k) + '_t')])).catch(() => {})
+    if (draft) await Promise.all(ALL_KINDS.flatMap((k) => [photoDel(photoKey(draft.id, k)), photoDel(photoKey(draft.id, k) + '_t')])).catch(() => {})
     await clearDraft()
     navigate('/visit')
   }
