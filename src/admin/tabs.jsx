@@ -74,7 +74,7 @@ function useSave(reload, say, onClose) {
 
 /* ---------- users ---------- */
 
-const ROLE_LABEL = { sales: 'Sales', asm: 'ASM', rtm: 'RTM', manager: 'Manager', admin: 'Admin' }
+const ROLE_LABEL = { sales: 'Sales', asm: 'ASM', rtm: 'RTM', manager: 'Manager', admin: 'Admin', ka: 'Key Account', kam: 'KA Manager' }
 
 export function UsersTab({ data, reload, say }) {
   const [q, setQ] = useState('')
@@ -119,7 +119,7 @@ export function UsersTab({ data, reload, say }) {
                 </span>
               </span>
               <span className="flex flex-col sm:flex-row items-end sm:items-center gap-1">
-                <Chip tone={u.role === 'admin' ? 'dark' : u.role === 'manager' || u.role === 'asm' || u.role === 'rtm' ? 'gold' : 'plain'}>{ROLE_LABEL[u.role]}</Chip>
+                <Chip tone={u.role === 'admin' ? 'dark' : ['manager', 'asm', 'rtm', 'ka', 'kam'].includes(u.role) ? 'gold' : 'plain'}>{ROLE_LABEL[u.role]}</Chip>
                 {!u.active && <Chip tone="red">Blocked</Chip>}
                 {u.active && u.passwordSet === false && <Chip>Temp password</Chip>}
                 {u.demo && <Chip tone="dark">Demo</Chip>}
@@ -155,7 +155,7 @@ function UserSheet({ user, divisions, agents, reload, say, onClose }) {
       title={user ? 'Edit user' : 'Add user'}
       onClose={onClose}
       footer={
-        <Button variant="gold" disabled={busy || !f.name.trim() || !f.username.trim() || (!user && !f.password.trim()) || (f.role === 'asm' && !f.agent)} onClick={() => run(() => saveUser({ ...f, agent: ['sales', 'asm'].includes(f.role) ? f.agent : '', originalId: user?.id }), user ? `${f.name} updated` : `${f.name} added`)}>
+        <Button variant="gold" disabled={busy || !f.name.trim() || !f.username.trim() || (!user && !f.password.trim()) || (f.role === 'asm' && !f.agent)} onClick={() => run(() => saveUser({ ...f, agent: ['sales', 'asm', 'ka'].includes(f.role) ? f.agent : '', originalId: user?.id }), user ? `${f.name} updated` : `${f.name} added`)}>
           {busy ? <Spinner /> : user ? 'Save changes' : 'Add user'}
         </Button>
       }
@@ -179,6 +179,8 @@ function UserSheet({ user, divisions, agents, reload, say, onClose }) {
             { value: 'sales', label: 'Sales' },
             { value: 'asm', label: 'ASM' },
             { value: 'rtm', label: 'RTM' },
+            { value: 'ka', label: 'Key Account' },
+            { value: 'kam', label: 'KA Manager' },
             { value: 'manager', label: 'Manager' },
             { value: 'admin', label: 'Admin' },
           ]}
@@ -194,11 +196,13 @@ function UserSheet({ user, divisions, agents, reload, say, onClose }) {
           ))}
         </select>
       </Field>
-      {(f.role === 'sales' || f.role === 'asm') && (
+      {(f.role === 'sales' || f.role === 'asm' || f.role === 'ka') && (
         <Field
           label="Agent"
           hint={
-            f.role === 'asm'
+            f.role === 'ka'
+              ? 'They record only at this agent\'s outlets and see only its Key Account visits. For two agents, list both with a comma in the Users tab.'
+              : f.role === 'asm'
               ? 'The ASM sees only the sales people and visits of this agent. To cover several agents, list them with commas in the Users tab.'
               : 'Their phone downloads only this agent\'s outlets, and the ASM of this agent sees their visits.'
           }

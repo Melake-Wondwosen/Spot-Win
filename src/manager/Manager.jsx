@@ -82,7 +82,7 @@ export default function Manager() {
 
   const online = team.filter((u) => u.online).length
   const activeToday = team.filter((u) => u.seenToday).length
-  const title = data?.scopeLabel || (user.role === 'admin' ? 'Manager view · All divisions' : user.role === 'asm' ? 'ASM' : user.role === 'rtm' ? 'RTM · All divisions' : 'Manager · All divisions')
+  const title = data?.scopeLabel || (user.role === 'admin' ? 'Manager view · All divisions' : user.role === 'asm' ? 'ASM' : user.role === 'rtm' ? 'RTM · All divisions' : user.role === 'kam' || user.role === 'ka' ? 'Key Account' : 'Manager · All divisions')
 
   return (
     <main className="min-h-full safe-bottom anim-fade bg-[#fbfaf7]">
@@ -95,7 +95,7 @@ export default function Manager() {
               <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.14em] text-gold truncate">{title}</p>
               <p className="font-serif text-base sm:text-lg leading-tight truncate">{user.name}</p>
             </div>
-            {(user.role === 'asm' || user.role === 'rtm') && (
+            {['asm', 'rtm', 'ka', 'kam'].includes(user.role) && (
               <Link
                 to="/"
                 className="btn-hover cta-shine shrink-0 hidden sm:inline-flex items-center gap-2 rounded-full gold-gradient text-ink h-10 px-4 text-sm font-bold"
@@ -117,7 +117,7 @@ export default function Manager() {
             <Bell />
             <SignOutButton onClick={signOut} />
           </div>
-          {(user.role === 'asm' || user.role === 'rtm') && (
+          {['asm', 'rtm', 'ka', 'kam'].includes(user.role) && (
             <Link to="/" className="sm:hidden mt-3 flex items-center justify-center gap-2 rounded-2xl gold-gradient text-ink h-11 font-bold active:scale-[0.98]">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 21h18" />
@@ -276,7 +276,7 @@ function TeamRow({ u, now, selected, onClick }) {
         <div className="flex items-center gap-2">
           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${u.online ? 'bg-gold live-dot' : u.seenToday ? 'bg-ink/45' : 'bg-ink/15'}`} />
           <span className="font-semibold truncate">{u.name}</span>
-          {(u.role === 'asm' || u.role === 'rtm') && <span className="text-[10px] font-bold tracking-wider rounded-full px-1.5 py-0.5 gold-gradient text-ink shrink-0">{u.role.toUpperCase()}</span>}
+          {['asm', 'rtm', 'ka', 'kam'].includes(u.role) && <span className="text-[10px] font-bold tracking-wider rounded-full px-1.5 py-0.5 gold-gradient text-ink shrink-0">{u.role.toUpperCase()}</span>}
           <span className="ml-auto text-xs text-ink/55 shrink-0">{status}</span>
         </div>
         {u.activity && <p className="text-sm text-ink/70 mt-0.5 pl-[18px] truncate">{u.activity}</p>}

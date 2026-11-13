@@ -287,15 +287,18 @@ function findUser_(id) {
 function roleOf_(text) {
   var r = String(text || '').toLowerCase();
   if (r.indexOf('admin') > -1) return 'admin';
+  // Key Account: "Key Account Manager" (or KAM) heads the team, "Key Account" (or KA) works it
+  if (/key\s*account\s*manager|\bkam\b/.test(r)) return 'kam';
+  if (/key\s*account|\bka\b/.test(r)) return 'ka';
   if (/\basm\b|area\s*sales/.test(r)) return 'asm';
   if (/\brtm\b|trade\s*marketing/.test(r)) return 'rtm';
   if (r.indexOf('manager') > -1) return 'manager';
   return 'sales';
 }
 
-var VIEWERS = ['manager', 'rtm', 'asm', 'admin'];
+var VIEWERS = ['manager', 'rtm', 'asm', 'admin', 'ka', 'kam'];
 // Roles that record visits: sales people, and ASMs and RTMs in the field
-var RECORDERS = ['sales', 'asm', 'rtm'];
+var RECORDERS = ['sales', 'asm', 'rtm', 'ka', 'kam'];
 
 function publicUser_(u) {
   return { id: u.id, name: u.name, username: u.username, staffId: u.staffId || '', role: u.role, region: u.region || '', agent: u.agent || '', active: u.active, passwordSet: !!u.changed };
@@ -311,8 +314,37 @@ function sameDiv_(a, b) { return String(a || '').trim().toLowerCase() === String
 function agentsOf_(text) { return String(text || '').split(/[,;]/).map(function (a) { return a.trim().toLowerCase(); }).filter(String); }
 function anyAgent_(list, value) { var v = String(value || '').trim().toLowerCase(); return !!v && list.indexOf(v) > -1; }
 
+/* Key Account works across divisions. Its visits are reported under the
+   division "Key Account" (the outlet's own division is kept as
+   outletDivision), and they stay out of every ASM, RTM and division
+   manager view. The Key Account Manager sees the whole team; each Key
+   Account user sees their own visits and the team's visits at their agents. */
+var KA_DIV = 'Key Account';
+function kaTeam_() {
+  var ids = {};
+  readUsers_().forEach(function (u) { if (u.role === 'ka' || u.role === 'kam') ids[u.id] = true; });
+  return ids;
+}
+// Puts Key Account visits under their own division. Call before visitInScope_.
+function teamDivisions_(rows) {
+  var ka = kaTeam_();
+  rows.forEach(function (v) {
+    if (ka[String(v.userId)] && !sameDiv_(v.division, KA_DIV)) { v.outletDivision = v.division; v.division = KA_DIV; }
+  });
+  return rows;
+}
+
 function scopeFor_(me) {
   var ids = {};
+  if (me.role === 'kam') {
+    var team = kaTeam_();
+    return { kind: 'team', label: 'Key Account', ids: team };
+  }
+  if (me.role === 'ka') {
+    ids[me.id] = true;
+    return { kind: 'ka', me: me.id, agents: agentsOf_(me.agent), label: 'Key Account · ' + (me.agent || 'no agent set'), ids: ids };
+  }
+  var kaIds = kaTeam_();
   if (me.role === 'asm') {
     var agents = agentsOf_(me.agent);
     readUsers_().forEach(function (u) {
@@ -322,12 +354,16 @@ function scopeFor_(me) {
   }
   // Managers and RTMs: their division (region). Blank region = all divisions.
   if ((me.role !== 'manager' && me.role !== 'rtm') || !String(me.region || '').trim()) return null;
-  readUsers_().forEach(function (u) { if (RECORDERS.indexOf(u.role) > -1 && (u.id === me.id || sameDiv_(u.region, me.region))) ids[u.id] = true; });
+  readUsers_().forEach(function (u) { if (RECORDERS.indexOf(u.role) > -1 && !kaIds[u.id] && (u.id === me.id || sameDiv_(u.region, me.region))) ids[u.id] = true; });
   return { kind: 'division', division: me.region, label: (me.role === 'rtm' ? 'RTM · ' : 'Manager · ') + me.region, ids: ids };
 }
 
 function visitInScope_(scope, v) {
   if (!scope) return true;
+  var ka = sameDiv_(v.division, KA_DIV);
+  if (scope.kind === 'team') return ka || !!scope.ids[String(v.userId)];
+  if (scope.kind === 'ka') return String(v.userId) === scope.me || (ka && anyAgent_(scope.agents, v.agent));
+  if (ka) return false;
   if (scope.kind === 'agent') return String(v.agent || '').trim() ? anyAgent_(scope.agents, v.agent) : !!scope.ids[String(v.userId)];
   return String(v.division || '').trim() ? sameDiv_(v.division, scope.division) : !!scope.ids[String(v.userId)];
 }
@@ -672,7 +708,7 @@ function resolveFlag_(b) {
 function sendNotice_(b) {
   var me = requireUser_(b.token, ['admin']);
   var target = String(b.target || 'all');
-  if (['all', 'sales', 'asm', 'rtm', 'manager', 'admin'].indexOf(target) < 0 && target.indexOf('user:') !== 0) fail_('Pick who should get it.');
+  if (['all', 'sales', 'asm', 'rtm', 'manager', 'admin', 'ka', 'kam'].indexOf(target) < 0 && target.indexOf('user:') !== 0) fail_('Pick who should get it.');
   if (!String(b.title || '').trim()) fail_('Add a title.');
   withLock_(function () { addNotice_(me, target, 'notice', String(b.title).trim(), String(b.body || '').trim()); });
   return {};
@@ -774,11 +810,12 @@ function findOutlet_(id) {
 }
 
 function lookupOutlet_(b) {
-  requireUser_(b.token);
+  var u = requireUser_(b.token);
   var id = normId_(b.outletId);
   if (!id) fail_('Enter the Outlet ID.');
   var o = findOutlet_(id);
   if (!o) return { found: false };
+  if (u.role === 'ka' && agentsOf_(u.agent).length && !anyAgent_(agentsOf_(u.agent), o.agent)) return { found: false, otherAgent: o.agent };
   return { found: true, outlet: { outletId: o.outletId, outletName: o.outletName, division: o.division, agent: o.agent, parentTerritory: o.parentTerritory, territory: o.territory } };
 }
 
@@ -1056,7 +1093,8 @@ function getPhoto_(b) {
       var h = headers_(vs);
       if (vs.getLastRow() > 1) {
         var ic = h.indexOf('id'), dc = h.indexOf('division'), ac = h.indexOf('agent'), uc = h.indexOf('userId');
-        vs.getRange(2, 1, vs.getLastRow() - 1, h.length).getValues().forEach(function (r) { divisions[String(r[ic])] = { division: r[dc], agent: r[ac], userId: r[uc] }; });
+        var ka = kaTeam_();
+        vs.getRange(2, 1, vs.getLastRow() - 1, h.length).getValues().forEach(function (r) { divisions[String(r[ic])] = { division: ka[String(r[uc])] ? KA_DIV : r[dc], agent: r[ac], userId: r[uc] }; });
       }
     }
     var v = divisions[visitId];
@@ -1106,6 +1144,7 @@ function addVisit_(b) {
   var outletId = normId_(v.outletId);
   var outlet = findOutlet_(outletId);
   if (!outlet) fail_('Outlet ID ' + outletId + ' is not in the outlet data.');
+  if (user.role === 'ka' && agentsOf_(user.agent).length && !anyAgent_(agentsOf_(user.agent), outlet.agent)) fail_('Outlet ' + outletId + ' is with ' + outlet.agent + '. You can record only at outlets of ' + user.agent + '.');
   if (ACTIVITIES.indexOf(v.activity) < 0) fail_('Choose one of the activities.');
   var unit = v.investmentUnit === 'Crate' ? 'Crate' : v.investmentUnit === 'Birr' ? 'Birr' : fail_('Choose Birr or Crate.');
   var amount = Number(v.amount);
@@ -1178,10 +1217,10 @@ function pickFields_(o, fields) {
 }
 
 function visitsBetween_(from, to) {
-  return readRows_('Visits', 0).filter(function (r) {
+  return teamDivisions_(readRows_('Visits', 0).filter(function (r) {
     var d = String(r.date);
     return (!from || d >= from) && (!to || d < to);
-  });
+  }));
 }
 
 // The user's own visits for the last 7 days, for Today's visits after a reinstall
@@ -1229,6 +1268,7 @@ function visitDetail_(b) {
   var vals = sheet.getRange(r, 1, 1, h.length).getValues()[0];
   var v = {};
   h.forEach(function (k, i) { v[k] = vals[i] instanceof Date ? vals[i].toISOString() : vals[i]; });
+  teamDivisions_([v]);
   if (!visitInScope_(scopeFor_(me), v)) fail_('This visit is outside your area.');
   var flags = readRows_('Flags', 0).filter(function (f) { return String(f.visitId) === String(v.id); });
   var o = findOutlet_(v.outletId);
@@ -1318,7 +1358,7 @@ function saveUser_(b) {
   var username = String(u.username || '').trim();
   var name = String(u.name || '').trim();
   var staffId = String(u.staffId || '').trim().toUpperCase();
-  var role = ['sales', 'asm', 'rtm', 'manager', 'admin'].indexOf(u.role) > -1 ? u.role : 'sales';
+  var role = ['sales', 'asm', 'rtm', 'manager', 'admin', 'ka', 'kam'].indexOf(u.role) > -1 ? u.role : 'sales';
   var agent = String(u.agent || '').trim();
   var active = u.active !== false;
   var password = String(u.password || '').trim();
@@ -1358,7 +1398,7 @@ function saveUser_(b) {
     put(t.c.name, name);
     put(t.c.staff, staffId);
     // The role cell stays as typed unless the role changed. Sales is written blank.
-    if (!editing || editing.role !== role) put(t.c.role, role === 'sales' ? '' : role);
+    if (!editing || editing.role !== role) put(t.c.role, role === 'sales' ? '' : role === 'ka' ? 'Key Account' : role === 'kam' ? 'Key Account Manager' : role);
     put(t.c.active, active ? 'yes' : 'no');
     put(t.c.region, region);
     put(t.c.agent, agent);

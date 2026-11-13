@@ -55,6 +55,7 @@ const CLEAR = { picked: false, offline: false, outletName: '', division: '', age
 
 export function StepOutlet({ data, set }) {
   const [state, setState] = useState(data.picked ? 'found' : data.offline ? 'offline' : 'idle') // idle | looking | found | notfound | offline
+  const [other, setOther] = useState('')
   const [asking, setAsking] = useState(false)
   const seq = useRef(0)
 
@@ -75,7 +76,10 @@ export function StepOutlet({ data, set }) {
       const r = await findOutlet(id)
       if (n !== seq.current) return
       if (r.found) fill(id, r.outlet)
-      else setState('notfound')
+      else if (r.otherAgent) {
+        setOther(r.otherAgent)
+        setState('other')
+      } else setState('notfound')
     } catch {
       if (n !== seq.current) return
       set({ offline: true })
@@ -171,6 +175,7 @@ export function StepOutlet({ data, set }) {
         </span>
       </label>
 
+      {state === 'other' && <Notice className="mt-3">Outlet {normOutletId(data.outletId)} is with {other}. You can record only at your agents' outlets.</Notice>}
       {state === 'notfound' && <Notice className="mt-3">Outlet ID {normOutletId(data.outletId)} is not in the outlet data. Check the number.</Notice>}
       {state === 'offline' && (
         <Notice tone="info" className="mt-3">

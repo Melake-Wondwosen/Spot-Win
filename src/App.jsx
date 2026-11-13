@@ -5,7 +5,7 @@ import { getUser } from './storage'
 import { devReason, onDev } from './guard'
 import { startPresence } from './presence'
 import { locationGate, onLocationGate, startWatch } from './location'
-import { homeFor } from './roles'
+import { homeFor, RECORDERS, VIEWERS } from './roles'
 import { loadOutlets, syncPack } from './outlets'
 import { reportApp } from './install'
 import Login from './pages/Login'
@@ -66,9 +66,9 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/password" element={<Navigate to="/login" replace />} />
-          <Route path="/" element={<RequireRole roles={['sales', 'asm', 'rtm']}><SalesShell><Home /></SalesShell></RequireRole>} />
-          <Route path="/visit" element={<RequireRole roles={['sales', 'asm', 'rtm']}><SalesShell><Visit /></SalesShell></RequireRole>} />
-          <Route path="/manager" element={<RequireRole roles={['manager', 'rtm', 'asm', 'admin']}><Manager /></RequireRole>} />
+          <Route path="/" element={<RequireRole roles={RECORDERS}><SalesShell><Home /></SalesShell></RequireRole>} />
+          <Route path="/visit" element={<RequireRole roles={RECORDERS}><SalesShell><Visit /></SalesShell></RequireRole>} />
+          <Route path="/manager" element={<RequireRole roles={VIEWERS}><Manager /></RequireRole>} />
           <Route path="/admin" element={<RequireRole roles={['admin']}><Admin /></RequireRole>} />
           <Route path="*" element={<Navigate to={getUser()?.token ? homeFor(getUser()) : '/login'} replace />} />
         </Routes>

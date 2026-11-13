@@ -71,10 +71,10 @@ export default function Analysis({ role = 'admin', exportMeta }) {
   }, [load])
 
   const manyDivisions = useMemo(() => new Set((visits || []).map((v) => text(v.division)).filter(Boolean)).size > 1, [visits])
-  const start = role === 'asm' ? 'user' : role === 'admin' || manyDivisions ? 'division' : 'agent'
+  const start = role === 'asm' || role === 'ka' ? 'user' : role === 'admin' || manyDivisions ? 'division' : 'agent'
 
   const used = new Set(path.map((p) => p.dim))
-  const options = [...ORDER.filter((d) => !used.has(d) && !(role === 'asm' && (d === 'division' || d === 'agent'))).map((d) => ({ value: d, label: DIMS[d].label })), { value: 'visits', label: 'Visits' }]
+  const options = [...ORDER.filter((d) => !used.has(d) && !((role === 'asm' || role === 'ka') && (d === 'division' || d === 'agent'))).map((d) => ({ value: d, label: DIMS[d].label })), { value: 'visits', label: 'Visits' }]
   const current = view && options.some((o) => o.value === view) ? view : path.length ? NEXT[path[path.length - 1].dim] : start
   const level = options.some((o) => o.value === current) ? current : 'visits'
 
@@ -137,7 +137,7 @@ export default function Analysis({ role = 'admin', exportMeta }) {
       {/* Where you are. Each step goes back up. */}
       <nav aria-label="Drill path" className="flex flex-wrap items-center gap-1.5 text-sm min-w-0">
         <Crumb onClick={() => back(0)} active={!path.length}>
-          {role === 'asm' ? 'My agent' : role === 'admin' || manyDivisions ? 'All divisions' : 'My division'}
+          {role === 'asm' || role === 'ka' ? 'My agent' : role === 'kam' ? 'Key Account' : role === 'admin' || manyDivisions ? 'All divisions' : 'My division'}
         </Crumb>
         {path.map((p, i) => (
           <span key={i} className="anim-fade inline-flex items-center gap-1.5 min-w-0">

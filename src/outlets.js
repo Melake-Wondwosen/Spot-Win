@@ -99,7 +99,7 @@ export async function findOutlet(id) {
   if (local) return { found: true, outlet: local }
   const d = await lookupOutlet(key)
   if (d.found) remember(d.outlet)
-  return d.found ? { found: true, outlet: d.outlet } : { found: false }
+  return d.found ? { found: true, outlet: d.outlet } : { found: false, otherAgent: d.otherAgent || '' }
 }
 
 export function distanceM(a, b) {
