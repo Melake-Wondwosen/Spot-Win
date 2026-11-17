@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { importOutlets, resolveFlag, saveOutlet, saveSettings, saveUser, sendNotice } from '../api'
-import { getUser, setSettings } from '../storage'
+import { getUser } from '../storage'
 import { Button, Field, Notice, Segmented, Sheet, Spinner, inputClass, initials } from '../components/ui'
 import { DEFAULT_SETTINGS } from '../config'
 import { flagLabel } from '../manager/calc'
@@ -755,13 +755,11 @@ const APP_STATE = {
   never: { label: 'Not opened yet', tone: 'plain' },
 }
 
-// Who has Spot Win installed, and the switch for the download card.
+// Who has Spot Win installed.
 // Status comes from the app itself each time someone opens it.
-export function AppTab({ data, reload, say }) {
+export function AppTab({ data }) {
   const [show, setShow] = useState('missing')
   const [q, setQ] = useState('')
-  const [busy, setBusy] = useState(false)
-  const cardOn = (data.settings?.appCard || 'on') !== 'off'
 
   const installs = useMemo(() => new Map((data.installs || []).map((r) => [String(r.userId), r])), [data.installs])
   const people = useMemo(
@@ -782,20 +780,6 @@ export function AppTab({ data, reload, say }) {
     .filter((p) => !q || [p.name, p.username, p.agent, p.region, ROLE_LABEL[p.role]].some((v) => norm(v).includes(norm(q))))
     .sort((a, b) => a.state.localeCompare(b.state) || a.name.localeCompare(b.name))
 
-  async function toggleCard(on) {
-    setBusy(true)
-    try {
-      const r = await saveSettings({ appCard: on ? 'on' : 'off' })
-      if (r?.settings) setSettings(r.settings)
-      await reload()
-      say(on ? 'Download card turned on for everyone' : 'Download card turned off for everyone')
-    } catch (err) {
-      say(err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <div className="space-y-4">
       <section className="rounded-2xl bg-ink text-paper p-4 sm:p-5 relative overflow-hidden">
@@ -810,16 +794,6 @@ export function AppTab({ data, reload, say }) {
         <p className="relative text-xs text-paper/55 mt-2 tabular">
           {pct}% · {people.filter((p) => p.state === 'browser').length} use it in a browser · {people.filter((p) => p.state === 'never').length} not opened yet
         </p>
-      </section>
-
-      <section className="rounded-2xl bg-white border border-ink/10 p-4 flex items-start gap-4">
-        <span className="flex-1 min-w-0">
-          <span className="block font-semibold">Download card on every screen</span>
-          <span className="block text-xs text-ink/55 mt-1">
-            The gold "Get the Spot Win app" card at the top of each screen, for everyone. Turn it off when your team has the app. The small download icon in the header and the button on the sign-in page stay, so new people can still install it.
-          </span>
-        </span>
-        {busy ? <Spinner /> : <Toggle on={cardOn} onChange={toggleCard} />}
       </section>
 
       <div className="flex flex-col sm:flex-row gap-2.5">
