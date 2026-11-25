@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { managerData } from '../api'
+import { CRATE_BIRR } from '../config'
 import Period from '../components/Period'
 import { Button, Notice, Segmented, Spinner, birr, whole } from '../components/ui'
 import { usePeriod, Tile } from '../manager/shared'
@@ -164,9 +165,9 @@ export default function Analysis({ role = 'admin', exportMeta }) {
             <Tile i={0} label="Visits" value={whole(t.visits)} />
             <Tile i={1} label="Outlets visited" value={whole(t.outlets)} />
             <Tile i={2} label="Active SPs" value={whole(t.users)} />
-            <Tile i={3} label="Total Birr" value={birr(Math.round(t.birr))} gold />
-            <Tile i={4} label="Total crates" value={whole(t.crates)} gold />
-            <Tile i={5} label="Avg Birr per visit" value={t.avgBirr == null ? '–' : birr(Math.round(t.avgBirr))} />
+            <Tile i={3} label="Total spend (Birr)" value={birr(Math.round(t.birr))} gold />
+            <Tile i={4} label="Total crates" value={whole(t.crates)} sub={`${birr(t.crates * CRATE_BIRR)} Birr`} gold />
+            <Tile i={5} label="Avg spend per visit" value={t.avgBirr == null ? '–' : birr(Math.round(t.avgBirr))} />
           </div>
 
           <section className="rounded-2xl bg-white border border-ink/10 p-4 anim-rise">
@@ -207,10 +208,10 @@ export default function Analysis({ role = 'admin', exportMeta }) {
               <>
                 <div className="hidden md:grid grid-cols-[minmax(0,1.4fr)_minmax(0,1.5fr)_64px_64px_110px_70px_20px] gap-3 mt-4 text-[11px] uppercase tracking-wider text-gold-dark">
                   <span>{levelLabel}</span>
-                  <span>Share of Birr</span>
+                  <span>Share of spend</span>
                   <span className="text-right">Visits</span>
                   <span className="text-right">Outlets</span>
-                  <span className="text-right">Birr</span>
+                  <span className="text-right">Spend (Birr)</span>
                   <span className="text-right">Crates</span>
                   <span />
                 </div>

@@ -1,11 +1,12 @@
-import { ACTIVITIES, JUMP_KMH, ONLINE_MS } from '../config'
+import { ACTIVITIES, CRATE_BIRR, JUMP_KMH, ONLINE_MS } from '../config'
 
 export const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? null : Number(v))
 export const text = (v) => String(v ?? '').replace(/^'/, '')
 const ms = (iso) => (iso ? new Date(iso).getTime() : 0)
 export const isVoid = (v) => text(v.status).toLowerCase() === 'void'
 
-// Totals for a list of visits. Void visits are left out.
+// Totals for a list of visits. Void visits are left out. birr is the full
+// spend: Birr paid plus crates at CRATE_BIRR each.
 export function totals(visits) {
   const saved = visits.filter((v) => !isVoid(v))
   let birr = 0
@@ -15,11 +16,11 @@ export function totals(visits) {
   const users = new Set()
   for (const v of saved) {
     const a = num(v.amount) || 0
-    if (text(v.investmentUnit) === 'Crate') crates += a
-    else {
-      birr += a
-      birrVisits++
-    }
+    if (text(v.investmentUnit) === 'Crate') {
+      crates += a
+      birr += a * CRATE_BIRR
+    } else birr += a
+    birrVisits++
     outlets.add(text(v.outletId))
     users.add(text(v.userId))
   }

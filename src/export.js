@@ -1,3 +1,4 @@
+import { spendOf } from './config'
 import { exportPage } from './api'
 import { getUser } from './storage'
 import { dateYear, isoDay, time } from './time'
@@ -37,8 +38,8 @@ const COLUMNS = [
   ['Territory', 22, (r) => s(r.territory)],
   ['Activity', 26, (r) => s(r.activity)],
   ['Investment unit', 10, (r) => s(r.investmentUnit)],
-  ['Investment (Birr)', 14, (r) => (t(r.investmentUnit) === 'Crate' ? null : num(n(r.amount), '#,##0.00'))],
   ['Investment (crates)', 12, (r) => (t(r.investmentUnit) === 'Crate' ? num(n(r.amount), '#,##0') : null)],
+  ['Spend (Birr)', 14, (r) => num(spendOf(r.investmentUnit, n(r.amount)), '#,##0.00')],
   ['Receipt photo', 12, (r) => link(r.receiptUrl, 'Open receipt')],
   ['Receipt source', 10, (r) => s(t(r.receiptSource) === 'gallery' ? 'Gallery' : t(r.receiptSource) ? 'Camera' : '')],
   ['Engagement photo', 14, (r) => link(r.engagementUrl, 'Open photo')],
@@ -104,7 +105,7 @@ function summaryRows(rows) {
       const g = m.get(k) || { visits: 0, birr: 0, crates: 0 }
       g.visits++
       if (t(r.investmentUnit) === 'Crate') g.crates += n(r.amount) || 0
-      else g.birr += n(r.amount) || 0
+      g.birr += spendOf(r.investmentUnit, n(r.amount))
       m.set(k, g)
     }
     return [...m.entries()].sort((a, b) => b[1].birr - a[1].birr)
@@ -113,7 +114,7 @@ function summaryRows(rows) {
   const bold = []
   const block = (title, key) => {
     bold.push(out.length)
-    out.push([title, 'Visits', 'Birr', 'Crates'])
+    out.push([title, 'Visits', 'Spend (Birr)', 'Crates'])
     let tv = 0, tb = 0, tc = 0
     for (const [k, g] of group(key)) {
       out.push([k, g.visits, num(g.birr, '#,##0.00'), num(g.crates, '#,##0')])

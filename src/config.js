@@ -23,6 +23,10 @@ export const MAX_TRANSFER_PHOTOS = 10
 
 // Defaults until the server sends the Settings tab
 // appCard: the gold "Get the Spot Win app" card on every screen, 'on' or 'off' (set by the admin)
+// Crates are counted as spend at this price, so every total is in Birr
+export const CRATE_BIRR = 1700
+export const spendOf = (unit, amount) => (String(unit ?? '').replace(/^'/, '') === 'Crate' ? 1 * CRATE_BIRR : 1) * (Number(amount) || 0)
+
 export const DEFAULT_SETTINGS = { birrLimit: 20000, crateLimit: 200, distanceLimitM: 100, appCard: 'on' }
 
 export const STEP_COUNT = 5

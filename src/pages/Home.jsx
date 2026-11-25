@@ -10,10 +10,10 @@ import { setActivity, stopPresence } from '../presence'
 import { ALL_KINDS, flushQueue, onQueue, photoKey, refreshQueueCount } from '../queue'
 import { clearDraft, clearUser, getCounts, getDraft, getLastSync, getQueueWhy, getUser, getLog, mergeCounts, setLastSync, updateLog } from '../storage'
 import { date, dayStart, time, weekday } from '../time'
-import { ACTIVITIES, STEP_COUNT } from '../config'
+import { ACTIVITIES, CRATE_BIRR, STEP_COUNT, spendOf } from '../config'
 import Bell from '../components/Bell'
 import InstallButton from '../components/InstallButton'
-import { amountText, Avatar, Button, Notice, Pattern, Sheet, SignOutButton } from '../components/ui'
+import { amountText, Avatar, birr, Button, Notice, Pattern, Sheet, SignOutButton } from '../components/ui'
 
 const STEP_NAMES = ['Outlet', 'Activity', 'Investment', 'Payment receipt', 'Engagement photo']
 
@@ -101,7 +101,7 @@ export default function Home() {
     reloadLog()
     if (d.total != null) {
       const start = dayStart()
-      mergeCounts(user.id, d.total, visits.filter((v) => new Date(v.finishedAt).getTime() >= start).length)
+      mergeCounts(user.id, d.total, visits.filter((v) => new Date(v.finishedAt).getTime() >= start).length, d.totalBirr)
     }
   }
 
@@ -135,6 +135,16 @@ export default function Home() {
     return [...groups.entries()].map(([k, visits]) => ({ day: k, label: k === dayStart(1) ? 'Yesterday' : `${weekday(k + 6 * 36e5)} ${date(k + 6 * 36e5)}`, visits }))
   }, [log])
   const [openDay, setOpenDay] = useState(null)
+  // Spend in Birr, crates counted at CRATE_BIRR. All time is the server's figure
+  // plus anything on this phone still waiting to upload.
+  const spend = useMemo(() => {
+    const sum = (list) => list.reduce((s, v) => s + spendOf(v.investmentUnit, v.amount), 0)
+    const dom = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Addis_Ababa', day: 'numeric' }).format(Date.now()))
+    const monthStart = dayStart(dom - 1)
+    const month = log.filter((v) => new Date(v.finishedAt).getTime() >= monthStart)
+    const all = counts.serverBirr == null ? null : counts.serverBirr + sum(log.filter((v) => !v.uploaded))
+    return { today: sum(today), month: sum(month), all, crates: log.some((v) => v.investmentUnit === 'Crate') }
+  }, [log, today, counts])
   const locOff = !!loc.error && !loc.fix
 
   return (
@@ -191,6 +201,19 @@ export default function Home() {
           <Stat label="Visits today" value={counts.today} />
           <Stat label="All time" value={counts.total} />
         </div>
+
+        <section className="mt-3 rounded-2xl bg-white border border-ink/10 px-4 py-3.5" style={{ '--i': 0 }}>
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-[11px] uppercase tracking-[0.14em] text-gold-dark">Your spending</h2>
+            <span className="text-[11px] text-ink/45">Birr</span>
+          </div>
+          <div className="grid grid-cols-3 mt-2 divide-x divide-ink/[0.08] text-center">
+            <Spend label="Today" value={spend.today} />
+            <Spend label="This month" value={spend.month} />
+            <Spend label="All time" value={spend.all} />
+          </div>
+          <p className="mt-2 text-[11px] text-ink/50 text-center">Crates counted at {birr(CRATE_BIRR)} Birr each</p>
+        </section>
 
         <div style={{ '--i': 1 }}>
           {draft ? (
@@ -384,6 +407,15 @@ function Arrow() {
       <path d="M5 12h14" />
       <path d="m13 6 6 6-6 6" />
     </svg>
+  )
+}
+
+function Spend({ label, value }) {
+  return (
+    <div className="px-1">
+      <p key={value} className="font-serif text-[22px] leading-tight text-ink tabular anim-count">{value == null ? '–' : birr(Math.round(value))}</p>
+      <p className="text-[11px] text-ink/55 mt-0.5">{label}</p>
+    </div>
   )
 }
 

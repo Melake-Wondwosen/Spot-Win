@@ -89,6 +89,9 @@ var ACTIVITIES = ['Bar Staff Engagement', 'Waitress Engagement', 'Consumer Onspo
 var PHOTO_KIND = /^(receipt([2-9]|10)?|engagement)$/;
 var MORE_KIND = /^receipt([2-9]|10)$/;
 var DEFAULT_SETTINGS = { birrLimit: 20000, crateLimit: 200, distanceLimitM: 100 };
+// Crates count as spend at this price per crate
+var CRATE_BIRR = 1700;
+function spendOf_(r) { var a = Number(r.amount) || 0; return String(r.investmentUnit).replace(/^'/, '') === 'Crate' ? a * CRATE_BIRR : a; }
 // Demo accounts: they can still sign in, but nothing they do shows in any
 // view, total, alert or Excel export. Change the list in the Settings tab (testUsers).
 var DEFAULT_TEST_USERS = 'SP01, ASM01, RTM01';
@@ -1231,7 +1234,8 @@ function myVisits_(b) {
   var mine = readRows_('Visits', 0).filter(function (r) { return String(r.userId) === me.id && String(r.status) !== 'Void'; });
   var list = mine.filter(function (r) { return String(r.date) >= since; })
     .map(function (r) { return { id: r.id, finishedAt: r.date, outletId: r.outletId, outletName: r.outletName, activity: r.activity, investmentUnit: r.investmentUnit, amount: r.amount }; });
-  return { visits: list, total: mine.length };
+  var spent = mine.reduce(function (s, r) { return s + spendOf_(r); }, 0);
+  return { visits: list, total: mine.length, totalBirr: spent };
 }
 
 function managerData_(b) {

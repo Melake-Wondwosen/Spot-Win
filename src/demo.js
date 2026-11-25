@@ -226,6 +226,7 @@ export async function demoCall(action, p) {
       const since = new Date(Date.now() - 31 * 864e5).toISOString()
       return {
         total: mine.length,
+        totalBirr: mine.reduce((a, v) => a + (v.investmentUnit === 'Crate' ? 1700 : 1) * (Number(v.amount) || 0), 0),
         visits: mine.filter((v) => v.date >= since).map((v) => ({ id: v.id, finishedAt: v.date, outletId: v.outletId, outletName: v.outletName, activity: v.activity, investmentUnit: v.investmentUnit, amount: v.amount })),
       }
     }

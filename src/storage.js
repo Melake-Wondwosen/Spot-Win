@@ -75,8 +75,9 @@ export function countDone(uid) {
   write(countKey(uid), c)
 }
 // Brings the counters up to what the server holds, never down (unsent visits count too)
-export function mergeCounts(uid, serverTotal, serverToday) {
+export function mergeCounts(uid, serverTotal, serverToday, serverBirr) {
   const c = read(countKey(uid), { total: 0, days: {} })
+  if (serverBirr != null) c.serverBirr = Number(serverBirr) || 0
   const d = isoDay()
   c.total = Math.max(c.total || 0, Number(serverTotal) || 0)
   c.days = { [d]: Math.max(c.days?.[d] || 0, Number(serverToday) || 0) }
@@ -84,7 +85,7 @@ export function mergeCounts(uid, serverTotal, serverToday) {
 }
 export function getCounts(uid) {
   const c = read(countKey(uid), { total: 0, days: {} })
-  return { today: c.days?.[isoDay()] || 0, total: c.total || 0 }
+  return { today: c.days?.[isoDay()] || 0, total: c.total || 0, serverBirr: c.serverBirr ?? null }
 }
 
 /* ---------- serialised writes ---------- */
@@ -117,8 +118,8 @@ export const updateQueue = (fn) =>
 
 /* ---------- today's visits on this phone ---------- */
 // Text only. Kept for 7 days so a late upload still shows its tick.
-// The home list keeps the last 30 days
-export const LOG_DAYS = 30
+// The home list keeps the last 31 days, enough for the whole month
+export const LOG_DAYS = 31
 const logKey = (uid) => `log_${uid}`
 export async function getLog(uid) {
   const list = (await kvGet(logKey(uid)).catch(() => null)) || []

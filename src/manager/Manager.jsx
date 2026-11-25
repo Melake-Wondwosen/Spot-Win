@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { managerData } from '../api'
-import { MANAGER_REFRESH_MS } from '../config'
+import { CRATE_BIRR, MANAGER_REFRESH_MS } from '../config'
 import { clearUser, getUser } from '../storage'
 import { Avatar, SignOutButton, Spinner, amountText, birr, whole } from '../components/ui'
 import Bell from '../components/Bell'
@@ -179,8 +179,8 @@ export default function Manager() {
               <Tile i={1} label="Active today" value={activeToday} />
               <Tile i={2} label="Visits" value={whole(sum.visits)} />
               <Tile i={3} label="Outlets visited" value={whole(sum.outlets)} />
-              <Tile i={4} label="Total Birr" value={birr(Math.round(sum.birr))} gold />
-              <Tile i={5} label="Total crates" value={whole(sum.crates)} gold />
+              <Tile i={4} label="Total spend (Birr)" value={birr(Math.round(sum.birr))} gold />
+              <Tile i={5} label="Total crates" value={whole(sum.crates)} sub={`${birr(sum.crates * CRATE_BIRR)} Birr`} gold />
             </div>
 
             <ActivityTable rows={acts} />
@@ -230,9 +230,9 @@ export function ActivityTable({ rows }) {
       <h2 className="font-serif text-xl">By activity</h2>
       <div className="hidden md:grid grid-cols-[minmax(0,1.3fr)_minmax(0,2fr)_80px_120px_90px] gap-3 mt-3 text-[11px] uppercase tracking-wider text-gold-dark">
         <span>Activity</span>
-        <span>Share of Birr</span>
+        <span>Share of spend</span>
         <span className="text-right">Visits</span>
-        <span className="text-right">Birr</span>
+        <span className="text-right">Spend (Birr)</span>
         <span className="text-right">Crates</span>
       </div>
       <ul className="mt-2 md:mt-1 divide-y divide-ink/[0.07]">

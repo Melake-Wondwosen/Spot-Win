@@ -1,3 +1,4 @@
+import { spendOf } from '../config'
 import { useEffect } from 'react'
 import logo from '../assets/logo.png'
 import pattern from '../assets/pattern.png'
@@ -239,7 +240,9 @@ export function Segmented({ value, onChange, options, className = '' }) {
 // Number helpers
 export const birr = (n) => (n == null || n === '' || isNaN(Number(n)) ? '–' : Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 }))
 export const whole = (n) => (n == null || n === '' || isNaN(Number(n)) ? '–' : Math.round(Number(n)).toLocaleString('en-US'))
-export const amountText = (unit, amount) => (unit === 'Crate' ? `${whole(amount)} ${Number(amount) === 1 ? 'crate' : 'crates'}` : `${birr(amount)} Birr`)
+// Crates also show their Birr value (CRATE_BIRR each)
+export const amountText = (unit, amount) =>
+  unit === 'Crate' ? `${whole(amount)} ${Number(amount) === 1 ? 'crate' : 'crates'} (${birr(spendOf(unit, amount))} Birr)` : `${birr(amount)} Birr`
 
 export const initials = (name) =>
   String(name || '?')
