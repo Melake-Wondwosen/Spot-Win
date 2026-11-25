@@ -40,7 +40,11 @@ function remove(key) {
 // No expiry. Signing out clears only this; unsent visits and their photos stay.
 export const getUser = () => read(USER_KEY, null)
 export const setUser = (user) => write(USER_KEY, user)
-export const clearUser = () => remove(USER_KEY)
+// Inside MELA, signing out here signs out of MELA too.
+export const clearUser = () => {
+  remove(USER_KEY)
+  try { if (window.parent !== window) window.parent.postMessage({ mela: 'signed-out' }, '*') } catch { /* not in MELA */ }
+}
 
 /* ---------- settings from the server ---------- */
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(SETTINGS_KEY, {}) })

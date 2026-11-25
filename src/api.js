@@ -87,6 +87,16 @@ export async function login(username, password, location) {
   return { id: String(u.id), name: String(u.name), username: String(u.username), staffId: String(u.staffId || ''), region: String(u.region || ''), agent: String(u.agent || ''), role, token: u.token, mustChange: !!u.mustChange }
 }
 
+// Sign-in from MELA: the ticket replaces the username and password.
+export async function melaLogin(ticket, location) {
+  const d = await post('melaSession', { ticket, location, device: deviceLabel() }, LOGIN_TIMEOUT_MS)
+  const u = d.user
+  if (!u || !u.token) throw new Error('MELA sign-in worked but no session came back. Is SpotWin.gs updated?')
+  setSettings(d.settings)
+  const role = VIEWERS.includes(u.role) ? u.role : 'sales'
+  return { id: String(u.id), name: String(u.name), username: String(u.username), staffId: String(u.staffId || ''), region: String(u.region || ''), agent: String(u.agent || ''), role, token: u.token, mustChange: false }
+}
+
 export const ping = (body) => authed('ping', body)
 export const changePassword = (newPassword) => authed('changePassword', { newPassword })
 export const keepPassword = () => authed('changePassword', { keep: true })
