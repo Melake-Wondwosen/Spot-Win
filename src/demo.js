@@ -221,8 +221,14 @@ export async function demoCall(action, p) {
       })
       return { id: v.id }
     }
-    case 'myVisits':
-      return { visits: [] }
+    case 'myVisits': {
+      const mine = d.visits.filter((v) => v.userId === me?.id && v.status !== 'Void')
+      const since = new Date(Date.now() - 31 * 864e5).toISOString()
+      return {
+        total: mine.length,
+        visits: mine.filter((v) => v.date >= since).map((v) => ({ id: v.id, finishedAt: v.date, outletId: v.outletId, outletName: v.outletName, activity: v.activity, investmentUnit: v.investmentUnit, amount: v.amount })),
+      }
+    }
     case 'managerData': {
       const scoped = me?.role === 'manager' || me?.role === 'rtm'
       const asm = me?.role === 'asm'

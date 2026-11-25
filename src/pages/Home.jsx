@@ -8,7 +8,7 @@ import { clearPack, syncPack } from '../outlets'
 import { setActivity, stopPresence } from '../presence'
 import { ALL_KINDS, flushQueue, onQueue, photoKey, refreshQueueCount } from '../queue'
 import { clearDraft, clearUser, getCounts, getDraft, getLastSync, getQueueWhy, getUser, getLog, mergeCounts, setLastSync, updateLog } from '../storage'
-import { dayStart, time } from '../time'
+import { date, dayStart, time, weekday } from '../time'
 import { ACTIVITIES, STEP_COUNT } from '../config'
 import Bell from '../components/Bell'
 import InstallButton from '../components/InstallButton'
@@ -118,6 +118,21 @@ export default function Home() {
   }
 
   const today = useMemo(() => log.filter((v) => new Date(v.finishedAt).getTime() >= dayStart()).sort((a, b) => (a.finishedAt < b.finishedAt ? 1 : -1)), [log])
+  // Earlier days, newest first, one group per day
+  const earlier = useMemo(() => {
+    const start = dayStart()
+    const groups = new Map()
+    log
+      .filter((v) => new Date(v.finishedAt).getTime() < start)
+      .sort((a, b) => (a.finishedAt < b.finishedAt ? 1 : -1))
+      .forEach((v) => {
+        const k = dayStart(0, new Date(v.finishedAt).getTime())
+        if (!groups.has(k)) groups.set(k, [])
+        groups.get(k).push(v)
+      })
+    return [...groups.entries()].map(([k, visits]) => ({ day: k, label: k === dayStart(1) ? 'Yesterday' : `${weekday(k + 6 * 36e5)} ${date(k + 6 * 36e5)}`, visits }))
+  }, [log])
+  const [openDay, setOpenDay] = useState(null)
   const locOff = !!loc.error && !loc.fix
 
   return (
@@ -290,35 +305,74 @@ export default function Home() {
           {!today.length ? (
             <p className="rounded-2xl border border-dashed border-ink/15 px-4 py-7 text-center text-sm text-ink/50">No visits yet today</p>
           ) : (
-            <ul className="rounded-2xl bg-white border border-ink/10 divide-y divide-ink/[0.07] overflow-hidden stagger">
-              {today.map((v, i) => (
-                <li key={v.id} style={{ '--i': i }} className="row-hover px-4 py-3 flex items-center gap-3">
-                  <span className="w-12 shrink-0 text-sm font-semibold tabular text-ink/70">{time(v.finishedAt)}</span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-semibold truncate">
-                      {v.outletName || 'Outlet'} <span className="font-normal text-ink/45">{v.outletId}</span>
-                    </span>
-                    <span className="block text-xs text-ink/55 truncate">
-                      {ACTIVITIES.find((a) => a.label === v.activity)?.short || v.activity} · <b className="text-gold-dark">{amountText(v.investmentUnit, v.amount)}</b>
-                    </span>
-                  </span>
-                  <span title={v.uploaded ? 'Uploaded' : 'Waiting to upload'} className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${v.uploaded ? 'gold-gradient text-ink' : 'bg-mist text-ink/55'}`}>
-                    {v.uploaded ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <VisitList visits={today} />
           )}
         </section>
+
+        {/* Earlier days, last 30 days */}
+        {earlier.length > 0 && (
+          <section style={{ '--i': 4 }} className="mt-7">
+            <h2 className="font-serif text-xl mb-2">Earlier visits</h2>
+            <ul className="rounded-2xl bg-white border border-ink/10 divide-y divide-ink/[0.07] overflow-hidden">
+              {earlier.map((g) => {
+                const open = openDay === g.day
+                return (
+                  <li key={g.day}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenDay(open ? null : g.day)}
+                      aria-expanded={open}
+                      className="row-hover w-full px-4 py-3 flex items-center gap-3 text-left"
+                    >
+                      <span className="flex-1 font-semibold">{g.label}</span>
+                      <span className="text-sm text-ink/55 tabular">
+                        {g.visits.length} {g.visits.length === 1 ? 'visit' : 'visits'}
+                      </span>
+                      <svg className={`shrink-0 text-ink/40 transition-transform ${open ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </button>
+                    {open && (
+                      <div className="border-t border-ink/[0.07] bg-[#fbfaf7]">
+                        <VisitList visits={g.visits} flat />
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
       </div>
 
       <Pattern className="opacity-50 px-8 pb-2 anim-fade" />
 
     </main>
+  )
+}
+
+function VisitList({ visits, flat = false }) {
+  return (
+    <ul className={flat ? 'divide-y divide-ink/[0.07]' : 'rounded-2xl bg-white border border-ink/10 divide-y divide-ink/[0.07] overflow-hidden stagger'}>
+      {visits.map((v, i) => (
+        <li key={v.id} style={{ '--i': i }} className="row-hover px-4 py-3 flex items-center gap-3">
+          <span className="w-12 shrink-0 text-sm font-semibold tabular text-ink/70">{time(v.finishedAt)}</span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-semibold truncate">
+              {v.outletName || 'Outlet'} <span className="font-normal text-ink/45">{v.outletId}</span>
+            </span>
+            <span className="block text-xs text-ink/55 truncate">
+              {ACTIVITIES.find((a) => a.label === v.activity)?.short || v.activity} · <b className="text-gold-dark">{amountText(v.investmentUnit, v.amount)}</b>
+            </span>
+          </span>
+          <span title={v.uploaded ? 'Uploaded' : 'Waiting to upload'} className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${v.uploaded ? 'gold-gradient text-ink' : 'bg-mist text-ink/55'}`}>
+            {v.uploaded ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }
 

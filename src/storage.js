@@ -117,14 +117,16 @@ export const updateQueue = (fn) =>
 
 /* ---------- today's visits on this phone ---------- */
 // Text only. Kept for 7 days so a late upload still shows its tick.
+// The home list keeps the last 30 days
+export const LOG_DAYS = 30
 const logKey = (uid) => `log_${uid}`
 export async function getLog(uid) {
   const list = (await kvGet(logKey(uid)).catch(() => null)) || []
-  return list.filter((v) => new Date(v.finishedAt).getTime() >= dayStart(6))
+  return list.filter((v) => new Date(v.finishedAt).getTime() >= dayStart(LOG_DAYS - 1))
 }
 export const updateLog = (uid, fn) =>
   serial(async () => {
-    const list = ((await kvGet(logKey(uid))) || []).filter((v) => new Date(v.finishedAt).getTime() >= dayStart(6))
+    const list = ((await kvGet(logKey(uid))) || []).filter((v) => new Date(v.finishedAt).getTime() >= dayStart(LOG_DAYS - 1))
     const next = fn(list)
     await kvSet(logKey(uid), next)
     return next
