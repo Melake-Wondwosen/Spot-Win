@@ -9,6 +9,7 @@ import { isVoid, text, totals } from '../manager/calc'
 import { VisitRow } from '../manager/VisitRow'
 import VisitDetail from '../manager/VisitDetail'
 import { DAY_MS, date, dayStart, weekday } from '../time'
+import { clockNow } from '../clock'
 
 // What the spending can be split by. `field` groups the rows, `name` labels them.
 const DIMS = {
@@ -99,7 +100,7 @@ export default function Analysis({ role = 'admin', exportMeta }) {
   // A bar for each day in the period (Addis days)
   const daily = useMemo(() => {
     const saved = rows.filter((v) => !isVoid(v))
-    const end = range.to ? new Date(range.to).getTime() - 1 : Date.now()
+    const end = range.to ? new Date(range.to).getTime() - 1 : clockNow()
     let from = range.from ? new Date(range.from).getTime() : saved.reduce((a, v) => Math.min(a, new Date(v.date).getTime()), end)
     from = Math.max(from, dayStart(89, end))
     const out = []

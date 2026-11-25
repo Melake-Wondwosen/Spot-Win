@@ -7,6 +7,7 @@ import { startHover } from './hover'
 import { persistStorage } from './db'
 import { startInstallWatch } from './install'
 import { startUpdateWatch } from './update'
+import { startClock } from './clock'
 import { DEMO } from './config'
 import './index.css'
 
@@ -15,6 +16,7 @@ startLocationGate()
 startInstallWatch()
 startHover()
 if (!DEMO) startUpdateWatch()
+if (!DEMO && !import.meta.env.DEV) startClock()
 persistStorage()
 
 createRoot(document.getElementById('root')).render(

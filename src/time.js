@@ -1,3 +1,4 @@
+import { clockNow } from './clock'
 // Everything is stored in UTC and shown in Addis Ababa time (UTC+3, no daylight saving).
 const ADDIS_MS = 3 * 3600 * 1000
 const TZ = 'Africa/Addis_Ababa'
@@ -24,12 +25,12 @@ export const weekday = (v) => (isNaN(ms(v)) ? '' : F_WEEKDAY.format(ms(v)))
 export const dateTime = (v) => (isNaN(ms(v)) ? '' : `${date(v)} ${time(v)}`)
 
 // Midnight in Addis, as a UTC timestamp. `offset` days back.
-export function dayStart(offset = 0, from = Date.now()) {
+export function dayStart(offset = 0, from = clockNow()) {
   return Math.floor((from + ADDIS_MS) / DAY) * DAY - ADDIS_MS - offset * DAY
 }
 
 // "2026-10-31" for an instant, in Addis time
-export function isoDay(v = Date.now()) {
+export function isoDay(v = clockNow()) {
   return new Date(ms(v) + ADDIS_MS).toISOString().slice(0, 10)
 }
 
@@ -37,7 +38,7 @@ export function isoDay(v = Date.now()) {
 export const dayFromIso = (s) => Date.parse(s + 'T00:00:00Z') - ADDIS_MS
 
 // PAY-20261031-161205-AB12, in Addis time
-export function visitId(at = Date.now()) {
+export function visitId(at = clockNow()) {
   const s = new Date(at + ADDIS_MS).toISOString()
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let tail = ''
@@ -57,7 +58,7 @@ export function periodRange(key, fromDay, toDay) {
   return { from: back == null ? '' : new Date(dayStart(back)).toISOString(), to: '' }
 }
 
-export function ago(fromMs, nowMs = Date.now()) {
+export function ago(fromMs, nowMs = clockNow()) {
   if (!fromMs) return 'never'
   const m = Math.max(0, Math.round((nowMs - fromMs) / 60000))
   if (m < 1) return 'just now'

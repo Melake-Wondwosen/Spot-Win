@@ -12,6 +12,7 @@ import { dateYear, time, visitId } from '../time'
 import { Button, Sheet, Spinner, amountText } from '../components/ui'
 import Zoom from '../components/Zoom'
 import { StepActivity, StepEngagement, StepInvestment, StepOutlet, StepReceipt, amountValue, isHigh, stepReady } from '../components/steps'
+import { clockIso, syncClock } from '../clock'
 
 const EMPTY = {
   outletId: '', outletName: '', division: '', agent: '', parentTerritory: '', territory: '', picked: false, offline: false,
@@ -48,6 +49,11 @@ export default function Visit() {
   const finished = useRef(false)
   const scroller = useRef(null)
 
+  // Fresh online time for this visit's stamps
+  useEffect(() => {
+    syncClock()
+  }, [])
+
   // Pick up a visit left part-way, or start one. The start time and location
   // are taken the moment this screen opens; a resumed visit keeps its first start.
   useEffect(() => {
@@ -62,7 +68,7 @@ export default function Visit() {
         start.current = d.start
       } else {
         setId(visitId())
-        start.current = { at: new Date().toISOString(), fix: fixOf(latestFix()) }
+        start.current = { at: clockIso(), fix: fixOf(latestFix()) }
       }
       setLoaded(true)
       if (!start.current.fix) {
@@ -126,7 +132,7 @@ export default function Visit() {
     setBusyPhoto(kind)
     setError('')
     try {
-      const at = new Date().toISOString()
+      const at = clockIso()
       const fixP = quickFix()
       const stamp = kind === 'engagement' ? [`${dateYear(at)} ${time(at)}`, `Outlet ${data.outletId}`, user.name] : null
       const p = await processPhoto(file, stamp)
@@ -191,7 +197,7 @@ export default function Visit() {
       setStatus('idle')
       return
     }
-    const now = new Date().toISOString()
+    const now = clockIso()
     const amount = amountValue(data.unit, data.amount)
     const s = start.current
     const transfer = isTransfer(data.activity)

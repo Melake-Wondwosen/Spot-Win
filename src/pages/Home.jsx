@@ -14,6 +14,7 @@ import { ACTIVITIES, CRATE_BIRR, STEP_COUNT, spendOf } from '../config'
 import Bell from '../components/Bell'
 import InstallButton from '../components/InstallButton'
 import { amountText, Avatar, birr, Button, Notice, Pattern, Sheet, SignOutButton } from '../components/ui'
+import { clockNow, syncClock } from '../clock'
 
 const STEP_NAMES = ['Outlet', 'Activity', 'Investment', 'Payment receipt', 'Engagement photo']
 
@@ -28,7 +29,7 @@ export default function Home() {
   const [syncing, setSyncing] = useState(false)
   const [result, setResult] = useState(null)
   const [loc, setLoc] = useState({ fix: null, error: null })
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(clockNow())
   const [log, setLog] = useState([])
 
   const reloadLog = () => getLog(user.id).then(setLog)
@@ -44,7 +45,7 @@ export default function Home() {
       if (!s.busy) reloadLog()
     })
     const offL = onLocation(setLoc)
-    const t = setInterval(() => setNow(Date.now()), 30000)
+    const t = setInterval(() => setNow(clockNow()), 30000)
     return () => {
       offQ()
       offL()
@@ -65,6 +66,8 @@ export default function Home() {
     if (!quiet) setResult(null)
     // The outlet data downloads in the background; Sync doesn't wait for it
     syncPack(undefined, !quiet)
+    // Online time first, so uploads carry the right clock
+    await syncClock()
     const flush = await flushQueue()
     let online = true
     // History and the bell are fetched separately, so one failing doesn't block the other
@@ -73,7 +76,7 @@ export default function Home() {
     if (hist.status === 'rejected' || bell.status === 'rejected') online = false
     if (flush.sent) addLocalNote(`${flush.sent} ${flush.sent === 1 ? 'visit' : 'visits'} uploaded`)
     if (online && !flush.left) {
-      const t = Date.now()
+      const t = clockNow()
       setLastSync(t)
       setLast(t)
     }
@@ -139,7 +142,7 @@ export default function Home() {
   // plus anything on this phone still waiting to upload.
   const spend = useMemo(() => {
     const sum = (list) => list.reduce((s, v) => s + spendOf(v.investmentUnit, v.amount), 0)
-    const dom = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Addis_Ababa', day: 'numeric' }).format(Date.now()))
+    const dom = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Addis_Ababa', day: 'numeric' }).format(clockNow()))
     const monthStart = dayStart(dom - 1)
     const month = log.filter((v) => new Date(v.finishedAt).getTime() >= monthStart)
     const all = counts.serverBirr == null ? null : counts.serverBirr + sum(log.filter((v) => !v.uploaded))

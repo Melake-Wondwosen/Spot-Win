@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { markRead, subscribeNotes } from '../notes'
+import { clockNow } from '../clock'
 
 const KIND = {
   flag: { dot: 'bg-ink', label: 'Alert' },
@@ -11,7 +12,7 @@ const KIND = {
 }
 
 function when(iso) {
-  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  const m = Math.round((clockNow() - new Date(iso).getTime()) / 60000)
   if (m < 1) return 'just now'
   if (m < 60) return `${m} min ago`
   const h = Math.round(m / 60)

@@ -1,4 +1,5 @@
 import { getUser } from './storage'
+import { clockIso } from './clock'
 
 // Bell contents. Server notes come with pings (sales), managerData (manager) or
 // adminData (admin). Local notes are things only this phone knows, such as
@@ -53,7 +54,7 @@ export function setServerNotes(list) {
 
 export function addLocalNote(title, body = '', kind = 'local') {
   const list = read(localKey(), [])
-  list.unshift({ id: `local:${Date.now()}`, date: new Date().toISOString(), kind, title, body })
+  list.unshift({ id: `local:${Date.now()}`, date: clockIso(), kind, title, body })
   write(localKey(), list.slice(0, 20))
   emit()
 }

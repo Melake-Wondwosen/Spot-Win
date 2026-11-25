@@ -2,6 +2,7 @@ import { addVisit, uploadPhoto } from './api'
 import { photoDel, photoGet } from './db'
 import { blobToBase64 } from './photo'
 import { getQueue, setQueueWhy, updateLog, updateQueue } from './storage'
+import { clockIso } from './clock'
 
 // Finish never waits on the network: the visit and its photos go into the
 // phone's queue and this uploads them in the background. Order per visit:
@@ -60,8 +61,9 @@ async function sendOne(v) {
     p.url = r.url
   }
   const { receipt, engagement, more, ...rest } = v
-  // sentAt is the phone clock at upload; the server uses it to correct a wrong phone clock
-  await addVisit({ ...rest, sentAt: new Date().toISOString(), receipt: { ...receipt }, more: (more || []).map((p) => ({ ...p })), engagement: engagement ? { ...engagement } : null })
+  // sentAt is the app's clock at upload; if the online time wasn't known when the
+  // visit was made, the server uses it to correct the times
+  await addVisit({ ...rest, sentAt: clockIso(), receipt: { ...receipt }, more: (more || []).map((p) => ({ ...p })), engagement: engagement ? { ...engagement } : null })
   // Photos leave the phone only once the server has the visit row
   await updateQueue((q) => q.filter((x) => x.id !== v.id))
   await Promise.all(ALL_KINDS.flatMap((k) => [photoDel(photoKey(v.id, k)), photoDel(photoKey(v.id, k) + '_t')])).catch(() => {})

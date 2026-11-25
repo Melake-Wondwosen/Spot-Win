@@ -2,6 +2,7 @@ import { spendOf } from './config'
 import { exportPage } from './api'
 import { getUser } from './storage'
 import { dateYear, isoDay, time } from './time'
+import { clockNow } from './clock'
 
 // Builds the Excel file on the phone or laptop. The server sends the rows that
 // match the filters (division-limited for managers) in pages of 2,000.
@@ -198,7 +199,7 @@ export async function exportVisits(filters, onProgress = () => {}, meta = {}) {
   const filterRows = [
     ['Filter', 'Value'],
     ['Exported by', `${me?.name || ''} (${me?.role || ''})`],
-    ['Exported at', `${dateYear(Date.now())} ${time(Date.now())} Addis Ababa time`],
+    ['Exported at', `${dateYear(clockNow())} ${time(clockNow())} Addis Ababa time`],
     ['From', f.from ? isoDay(f.from) : 'Start'],
     ['To', f.to ? isoDay(new Date(f.to).getTime() - 1) : 'Today'],
     ['Division', meta.division || f.division || 'All'],

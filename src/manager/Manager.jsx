@@ -16,6 +16,7 @@ import MapView from './MapView'
 import VisitDetail from './VisitDetail'
 import { byActivity, flagLabel, isVoid, teamStatus, text, totals } from './calc'
 import { VisitRow } from './VisitRow'
+import { clockNow } from '../clock'
 
 // The spending analysis loads only when someone opens it
 const Analysis = lazy(() => import('../admin/Analysis'))
@@ -31,7 +32,7 @@ export default function Manager() {
   const { range, props: periodProps } = usePeriod('today')
   const [data, setData] = useState(null)
   const [fetchedAt, setFetchedAt] = useState(0)
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(clockNow())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(null)
@@ -44,7 +45,7 @@ export default function Manager() {
       const d = await managerData({ from: range.from, to: range.to, trackFrom: new Date(dayStart()).toISOString() })
       setData(d)
       setServerNotes(d.notes)
-      setFetchedAt(Date.now())
+      setFetchedAt(clockNow())
       setError('')
     } catch (err) {
       setError(err.message)
@@ -60,7 +61,7 @@ export default function Manager() {
   }, [load])
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30000)
+    const t = setInterval(() => setNow(clockNow()), 30000)
     return () => clearInterval(t)
   }, [])
 
