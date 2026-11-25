@@ -65,13 +65,10 @@ export default function Home() {
     syncPack(undefined, !quiet)
     const flush = await flushQueue()
     let online = true
-    try {
-      const d = await notifications()
-      setServerNotes(d.notes)
-      await fillFromServer()
-    } catch {
-      online = false
-    }
+    // History and the bell are fetched separately, so one failing doesn't block the other
+    const [hist, bell] = await Promise.allSettled([fillFromServer(), notifications()])
+    if (bell.status === 'fulfilled') setServerNotes(bell.value.notes)
+    if (hist.status === 'rejected' || bell.status === 'rejected') online = false
     if (flush.sent) addLocalNote(`${flush.sent} ${flush.sent === 1 ? 'visit' : 'visits'} uploaded`)
     if (online && !flush.left) {
       const t = Date.now()
@@ -91,12 +88,15 @@ export default function Home() {
   async function fillFromServer() {
     const d = await myVisits()
     const visits = d.visits || []
-    if (visits.length) {
-      await updateLog(user.id, (list) => {
-        const ids = new Set(list.map((v) => v.id))
-        return [...list, ...visits.filter((v) => !ids.has(v.id)).map((v) => ({ ...v, uploaded: true }))]
-      })
-    }
+    const onServer = new Set(visits.map((v) => v.id))
+    await updateLog(user.id, (list) => {
+      // The server list is the record: uploaded visits it no longer has were voided.
+      // Visits still waiting to upload stay.
+      const kept = d.total != null ? list.filter((v) => !v.uploaded || onServer.has(v.id)) : list
+      const ids = new Set(kept.map((v) => v.id))
+      return [...kept, ...visits.filter((v) => !ids.has(v.id)).map((v) => ({ ...v, uploaded: true }))]
+    })
+    reloadLog()
     if (d.total != null) {
       const start = dayStart()
       mergeCounts(user.id, d.total, visits.filter((v) => new Date(v.finishedAt).getTime() >= start).length)
