@@ -7,7 +7,7 @@ import { addLocalNote, clearNotesMemory, setServerNotes } from '../notes'
 import { clearPack, syncPack } from '../outlets'
 import { setActivity, stopPresence } from '../presence'
 import { ALL_KINDS, flushQueue, onQueue, photoKey, refreshQueueCount } from '../queue'
-import { clearDraft, clearUser, getCounts, getDraft, getLastSync, getLog, getQueueWhy, getUser, setLastSync, updateLog } from '../storage'
+import { clearDraft, clearUser, getCounts, getDraft, getLastSync, getQueueWhy, getUser, getLog, mergeCounts, setLastSync, updateLog } from '../storage'
 import { dayStart, time } from '../time'
 import { ACTIVITIES, STEP_COUNT } from '../config'
 import Bell from '../components/Bell'
@@ -86,16 +86,21 @@ export default function Home() {
     setSyncing(false)
   }
 
-  // After a reinstall the phone has no list, so fill it from the server
+  // The server holds every visit, so a new phone, a cleared browser or a fresh
+  // sign-in (after a password change) gets the same list and counts back
   async function fillFromServer() {
-    const have = await getLog(user.id)
-    if (have.length) return
     const d = await myVisits()
-    if (!d.visits?.length) return
-    await updateLog(user.id, (list) => {
-      const ids = new Set(list.map((v) => v.id))
-      return [...list, ...d.visits.filter((v) => !ids.has(v.id)).map((v) => ({ ...v, uploaded: true }))]
-    })
+    const visits = d.visits || []
+    if (visits.length) {
+      await updateLog(user.id, (list) => {
+        const ids = new Set(list.map((v) => v.id))
+        return [...list, ...visits.filter((v) => !ids.has(v.id)).map((v) => ({ ...v, uploaded: true }))]
+      })
+    }
+    if (d.total != null) {
+      const start = dayStart()
+      mergeCounts(user.id, d.total, visits.filter((v) => new Date(v.finishedAt).getTime() >= start).length)
+    }
   }
 
   function signOut() {

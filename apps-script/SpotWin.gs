@@ -1223,13 +1223,15 @@ function visitsBetween_(from, to) {
   }));
 }
 
-// The user's own visits for the last 7 days, for Today's visits after a reinstall
+// The user's own visits: the last 7 days for Today's visits, and the all-time
+// count, so a new phone, a cleared browser or a fresh sign-in shows the same history
 function myVisits_(b) {
   var me = requireUser_(b.token);
   var since = new Date(Date.now() - 7 * 864e5).toISOString();
-  var list = visitsBetween_(since, '').filter(function (r) { return String(r.userId) === me.id && String(r.status) !== 'Void'; })
+  var mine = readRows_('Visits', 0).filter(function (r) { return String(r.userId) === me.id && String(r.status) !== 'Void'; });
+  var list = mine.filter(function (r) { return String(r.date) >= since; })
     .map(function (r) { return { id: r.id, finishedAt: r.date, outletId: r.outletId, outletName: r.outletName, activity: r.activity, investmentUnit: r.investmentUnit, amount: r.amount }; });
-  return { visits: list };
+  return { visits: list, total: mine.length };
 }
 
 function managerData_(b) {

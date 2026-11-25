@@ -74,6 +74,14 @@ export function countDone(uid) {
   c.days = { [d]: (c.days?.[d] || 0) + 1 }
   write(countKey(uid), c)
 }
+// Brings the counters up to what the server holds, never down (unsent visits count too)
+export function mergeCounts(uid, serverTotal, serverToday) {
+  const c = read(countKey(uid), { total: 0, days: {} })
+  const d = isoDay()
+  c.total = Math.max(c.total || 0, Number(serverTotal) || 0)
+  c.days = { [d]: Math.max(c.days?.[d] || 0, Number(serverToday) || 0) }
+  write(countKey(uid), c)
+}
 export function getCounts(uid) {
   const c = read(countKey(uid), { total: 0, days: {} })
   return { today: c.days?.[isoDay()] || 0, total: c.total || 0 }
