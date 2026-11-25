@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { myVisits, notifications } from '../api'
+import { checkForUpdate } from '../update'
 import { photoDel } from '../db'
 import { locationMessage, onLocation } from '../location'
 import { addLocalNote, clearNotesMemory, setServerNotes } from '../notes'
@@ -60,6 +61,7 @@ export default function Home() {
   async function sync(quiet = false) {
     if (syncing) return
     setSyncing(true)
+    if (!quiet) checkForUpdate()
     if (!quiet) setResult(null)
     // The outlet data downloads in the background; Sync doesn't wait for it
     syncPack(undefined, !quiet)

@@ -6,6 +6,7 @@ import { startLocationGate } from './location'
 import { startHover } from './hover'
 import { persistStorage } from './db'
 import { startInstallWatch } from './install'
+import { startUpdateWatch } from './update'
 import { DEMO } from './config'
 import './index.css'
 
@@ -13,6 +14,7 @@ startGuard()
 startLocationGate()
 startInstallWatch()
 startHover()
+if (!DEMO) startUpdateWatch()
 persistStorage()
 
 createRoot(document.getElementById('root')).render(
