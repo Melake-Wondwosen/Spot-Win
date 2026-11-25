@@ -60,7 +60,8 @@ async function sendOne(v) {
     p.url = r.url
   }
   const { receipt, engagement, more, ...rest } = v
-  await addVisit({ ...rest, receipt: { ...receipt }, more: (more || []).map((p) => ({ ...p })), engagement: engagement ? { ...engagement } : null })
+  // sentAt is the phone clock at upload; the server uses it to correct a wrong phone clock
+  await addVisit({ ...rest, sentAt: new Date().toISOString(), receipt: { ...receipt }, more: (more || []).map((p) => ({ ...p })), engagement: engagement ? { ...engagement } : null })
   // Photos leave the phone only once the server has the visit row
   await updateQueue((q) => q.filter((x) => x.id !== v.id))
   await Promise.all(ALL_KINDS.flatMap((k) => [photoDel(photoKey(v.id, k)), photoDel(photoKey(v.id, k) + '_t')])).catch(() => {})

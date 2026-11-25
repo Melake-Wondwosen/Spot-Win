@@ -110,5 +110,6 @@ export const FLAG_LABEL = {
   'high-amount': 'High amount',
   'duplicate-receipt': 'Duplicate receipt',
   'short-visit': 'Very short visit',
+  'wrong-clock': 'Phone clock wrong',
 }
 export const flagLabel = (t) => FLAG_LABEL[t] || t

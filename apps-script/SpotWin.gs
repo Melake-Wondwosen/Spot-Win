@@ -643,7 +643,8 @@ function appStatus_(b) {
 
 var FLAG_TEXT = {
   devtools: 'Developer tools detected', 'location-off': 'Location switched off', 'away-from-outlet': 'Away from outlet',
-  'high-amount': 'High amount', 'duplicate-receipt': 'Duplicate receipt', 'short-visit': 'Very short visit'
+  'high-amount': 'High amount', 'duplicate-receipt': 'Duplicate receipt', 'short-visit': 'Very short visit',
+  'wrong-clock': 'Phone clock wrong'
 };
 
 // fast = one atomic append without the lock (for flags sent from phones)
@@ -1171,17 +1172,23 @@ function addVisit_(b) {
     return p;
   });
 
+  // Phone clocks can be wrong (days ahead, or a wrong time zone). The phone says
+  // what its clock read when it sent the visit; the difference from the server
+  // clock is the error, and every phone time below is moved by it.
+  var skew = clockSkew_(v);
+  var fix = function (iso) { return shiftIso_(iso, skew); };
+
   var settings = readSettings_();
   var row = {
-    id: id, status: 'Saved', date: isoOr_(v.finishedAt, now_()), userId: user.id, userName: user.name, staffId: user.staffId || '',
+    id: id, status: 'Saved', date: fix(isoOr_(v.finishedAt, now_())), userId: user.id, userName: user.name, staffId: user.staffId || '',
     outletId: outletId, outletName: outlet.outletName, division: outlet.division, agent: outlet.agent, parentTerritory: outlet.parentTerritory, territory: outlet.territory,
     activity: v.activity, investmentUnit: unit, amount: amount,
-    receiptPhotoId: receipt.id, receiptUrl: String(receipt.url), receiptSource: String(receipt.source), receiptHash: String(receipt.hash), receiptAt: isoOr_(r.at, String(receipt.takenAt)),
+    receiptPhotoId: receipt.id, receiptUrl: String(receipt.url), receiptSource: String(receipt.source), receiptHash: String(receipt.hash), receiptAt: fix(isoOr_(r.at, String(receipt.takenAt))),
     morePhotoIds: more.map(function (p) { return p.id; }).join(','), morePhotoUrls: more.map(function (p) { return String(p.url); }).join('\n'),
     engagementPhotoId: engagement.id || '', engagementUrl: String(engagement.url || ''), engagementHash: String(engagement.hash || ''),
-    engagementAt: engagement.id ? isoOr_(e.at, String(engagement.takenAt || '')) : '',
+    engagementAt: engagement.id ? fix(isoOr_(e.at, String(engagement.takenAt || ''))) : '',
     engagementLat: engagement.id ? num_(e.lat) : '', engagementLng: engagement.id ? num_(e.lng) : '',
-    startedAt: isoOr_(v.startedAt, ''), startLat: num_(v.startLat), startLng: num_(v.startLng), startAccuracy: num_(v.startAccuracy),
+    startedAt: fix(isoOr_(v.startedAt, '')), startLat: num_(v.startLat), startLng: num_(v.startLng), startAccuracy: num_(v.startAccuracy),
     lat: num_(v.lat), lng: num_(v.lng), accuracy: num_(v.accuracy), distanceM: '',
     device: String(v.device || '').slice(0, 200), appVersion: String(v.appVersion || '').slice(0, 20), uploadedAt: now_()
   };
@@ -1190,6 +1197,7 @@ function addVisit_(b) {
   }
 
   var alerts = [];
+  if (skew) alerts.push(['wrong-clock', 'Phone clock was ' + skewText_(skew) + '. Visit time corrected.']);
   var limit = unit === 'Crate' ? settings.crateLimit : settings.birrLimit;
   if (amount > limit) alerts.push(['high-amount', amount.toLocaleString() + ' ' + (unit === 'Crate' ? 'crates' : 'Birr') + ' is above the ' + limit.toLocaleString() + ' limit']);
   if (row.distanceM !== '' && row.distanceM > settings.distanceLimitM) alerts.push(['away-from-outlet', outlet.outletName + ' (' + outletId + ') ' + row.distanceM + ' m away']);
@@ -1203,6 +1211,61 @@ function addVisit_(b) {
     alerts.forEach(function (a) { addFlag_(user, id, a[0], a[1]); });
   });
   return { id: id, duplicate: duplicate };
+}
+
+var CLOCK_SLACK_MS = 3 * 60 * 1000;
+// How far the phone clock is behind the server (positive) or ahead (negative). 0 if close enough.
+function clockSkew_(v) {
+  var now = Date.now();
+  var sent = v.sentAt ? Date.parse(v.sentAt) : NaN;
+  var k = 0;
+  if (!isNaN(sent)) k = now - sent;
+  else {
+    // Older app versions don't send sentAt: a finish time in the future still gives it away
+    var fin = Date.parse(v.finishedAt);
+    if (!isNaN(fin) && fin > now) k = now - fin;
+  }
+  return Math.abs(k) > CLOCK_SLACK_MS ? k : 0;
+}
+function shiftIso_(iso, skew) {
+  if (!iso || !skew) return iso;
+  var t = Date.parse(iso);
+  return isNaN(t) ? iso : new Date(Math.min(t + skew, Date.now())).toISOString();
+}
+function skewText_(skew) {
+  var m = Math.round(Math.abs(skew) / 60000), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+  var parts = [];
+  if (d) parts.push(d + (d === 1 ? ' day' : ' days'));
+  if (h) parts.push(h + (h === 1 ? ' hour' : ' hours'));
+  if (!d && mm) parts.push(mm + ' min');
+  return parts.join(' ') + (skew < 0 ? ' ahead' : ' behind');
+}
+
+// One-off repair for visits saved before the clock fix: any visit dated after
+// the moment it reached the server had a phone clock running ahead. Its times
+// move back so the finish time equals the upload time. Run it once from the
+// editor (choose fixVisitClocks, then Run). Running it again changes nothing.
+function fixVisitClocks() {
+  var sh = sheet_('Visits');
+  var data = sh.getDataRange().getValues();
+  var head = data[0].map(String);
+  var col = function (n) { return head.indexOf(n); };
+  var cDate = col('date'), cUp = col('uploadedAt');
+  var cols = ['date', 'startedAt', 'receiptAt', 'engagementAt'].map(col).filter(function (c) { return c >= 0; });
+  var fixed = [];
+  for (var i = 1; i < data.length; i++) {
+    var d = Date.parse(String(data[i][cDate])), up = Date.parse(String(data[i][cUp]));
+    if (isNaN(d) || isNaN(up) || d - up <= 60 * 1000) continue;
+    var skew = up - d;
+    cols.forEach(function (c) {
+      var v = String(data[i][c] || '');
+      var t = Date.parse(v);
+      if (v && !isNaN(t)) sh.getRange(i + 1, c + 1).setValue(new Date(t + skew).toISOString());
+    });
+    fixed.push(data[i][col('userName')] + ' ' + data[i][col('id')] + ' (' + skewText_(skew) + ')');
+  }
+  Logger.log(fixed.length + ' visits fixed' + (fixed.length ? ':\n' + fixed.join('\n') : ''));
+  return fixed.length;
 }
 
 function isoOr_(v, fallback) {
