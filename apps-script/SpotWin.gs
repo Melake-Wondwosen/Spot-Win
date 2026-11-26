@@ -113,7 +113,7 @@ var HEADERS = {
   Track: ['date', 'userId', 'userName', 'lat', 'lng', 'accuracy', 'activity'],
   Logins: ['date', 'userId', 'userName', 'role', 'lat', 'lng', 'accuracy', 'device'],
   Flags: ['id', 'date', 'userId', 'userName', 'visitId', 'type', 'detail', 'status', 'resolvedBy', 'resolvedAt'],
-  Outlets: ['key', 'outletId', 'outletName', 'status', 'requestedBy', 'requestedByName', 'lat', 'lng', 'createdAt', 'updatedAt'],
+  Outlets: ['key', 'outletId', 'outletName', 'status', 'requestedBy', 'requestedByName', 'lat', 'lng', 'createdAt', 'updatedAt', 'reviewedBy'],
   Notifications: ['id', 'date', 'fromId', 'fromName', 'target', 'kind', 'title', 'body'],
   Exports: ['date', 'userId', 'userName', 'role', 'filters', 'rowCount'],
   Settings: ['key', 'value'],
@@ -682,9 +682,11 @@ function notesFor_(u) {
       notes.push({ id: 'flag:' + f.id, date: String(f.date), kind: 'flag', title: String(f.userName) + ': ' + (FLAG_TEXT[f.type] || f.type), body: String(f.detail || '') });
     });
   }
-  if (role === 'admin') {
+  if (role === 'admin' || role === 'rtm') {
+    var rScope = role === 'rtm' ? scopeFor_(findUser_(u.id) || u) : null;
     readRows_('Outlets', 0).forEach(function (o) {
       if (String(o.status) !== 'pending') return;
+      if (rScope && !rScope.ids[String(o.requestedBy)]) return;
       notes.push({ id: 'req:' + o.key, date: String(o.createdAt), kind: 'request', title: 'New outlet request', body: String(o.outletName) + ' from ' + String(o.requestedByName) });
     });
   }
@@ -929,9 +931,21 @@ function requestOutlet_(b) {
   return {};
 }
 
+// RTMs can approve or decline outlet requests from their own division's people
+function rtmRequestOk_(me, outlet) {
+  var scope = scopeFor_(me);
+  return !scope || !!scope.ids[String(outlet.requestedBy)];
+}
+
 function saveOutlet_(b) {
-  var me = requireUser_(b.token, ['admin']);
+  var me = requireUser_(b.token, ['admin', 'rtm']);
   var o = b.outlet || {};
+  if (me.role === 'rtm') {
+    var req = o.key ? readRows_('Outlets', 0).filter(function (r) { return r.key === o.key; })[0] : null;
+    if (!req || String(req.status) !== 'pending') fail_('RTMs can only approve or decline outlet requests.');
+    if (o.status !== 'active' && o.status !== 'rejected') fail_('Choose approve or decline.');
+    if (!rtmRequestOk_(me, req)) fail_('This request is from outside your division.');
+  }
   var id = normId_(o.outletId);
   var name = String(o.outletName || '').trim();
   var status = ['active', 'inactive', 'pending', 'rejected'].indexOf(o.status) > -1 ? o.status : 'active';
@@ -944,6 +958,7 @@ function saveOutlet_(b) {
     if (id && status !== 'rejected' && clash) { result = id + ' is already used by ' + clash.outletName + '.'; return; }
     var before = rows.filter(function (r) { return o.key && r.key === o.key; })[0];
     var row = { outletId: id, outletName: name, status: status, updatedAt: now_() };
+    if (before && before.status === 'pending' && status !== 'pending') row.reviewedBy = me.name + (me.role === 'rtm' ? ' (RTM)' : '');
     if (o.lat !== undefined) row.lat = coord_(o.lat, 90);
     if (o.lng !== undefined) row.lng = coord_(o.lng, 180);
     if (before) {
@@ -1324,8 +1339,19 @@ function managerData_(b) {
     visits: visits,
     track: readRows_('Track', 8000).filter(function (r) { return String(r.date) >= trackFrom && mine(r.userId); }),
     flags: readRows_('Flags', 1000).filter(function (r) { return String(r.date) >= flagFrom && mine(r.userId); }),
+    outletRequests: me.role === 'rtm' ? outletRequestsFor_(me, scope) : null,
     notes: notesFor_(me)
   };
+}
+
+// Pending outlet requests from the RTM's people, plus the last few handled
+function outletRequestsFor_(me, scope) {
+  var keep = ['key', 'outletId', 'outletName', 'status', 'requestedBy', 'requestedByName', 'lat', 'lng', 'createdAt', 'updatedAt', 'reviewedBy'];
+  var mineReq = readRows_('Outlets', 0).filter(function (o) { return o.requestedBy && (!scope || scope.ids[String(o.requestedBy)]); });
+  var pending = mineReq.filter(function (o) { return String(o.status) === 'pending'; });
+  var handled = mineReq.filter(function (o) { return String(o.status) === 'active' || String(o.status) === 'rejected'; })
+    .sort(function (a, b) { return String(b.updatedAt).localeCompare(String(a.updatedAt)); }).slice(0, 8);
+  return pending.concat(handled).map(function (o) { return pickFields_(o, keep); });
 }
 
 function visitDetail_(b) {

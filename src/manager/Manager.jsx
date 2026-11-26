@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { managerData } from '../api'
 import { CRATE_BIRR, MANAGER_REFRESH_MS } from '../config'
 import { clearUser, getUser } from '../storage'
-import { Avatar, SignOutButton, Spinner, amountText, birr, whole } from '../components/ui'
+import { Avatar, SignOutButton, Spinner, Toast, amountText, birr, whole } from '../components/ui'
 import Bell from '../components/Bell'
 import InstallButton from '../components/InstallButton'
 import ExportButton from '../components/ExportButton'
@@ -25,6 +25,9 @@ const VIEWS = [
   { key: 'live', label: 'Live' },
   { key: 'spending', label: 'Spending' },
 ]
+// RTMs also approve outlet requests from their people
+const RTM_VIEWS = [...VIEWS, { key: 'requests', label: 'Requests' }]
+const RequestsTab = lazy(() => import('../admin/tabs').then((m) => ({ default: m.RequestsTab })))
 
 export default function Manager() {
   const navigate = useNavigate()
@@ -38,6 +41,15 @@ export default function Manager() {
   const [selected, setSelected] = useState(null)
   const [openVisit, setOpenVisit] = useState(null)
   const [view, setView] = useState('live')
+  const [toast, setToast] = useState(null)
+  const say = (t) => setToast({ text: t, id: clockNow() })
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3200)
+    return () => clearTimeout(t)
+  }, [toast])
+  const views = user.role === 'rtm' ? RTM_VIEWS : VIEWS
+  const pendingCount = (data?.outletRequests || []).filter((o) => o.status === 'pending').length
 
   const load = useCallback(async () => {
     setBusy(true)
@@ -128,8 +140,8 @@ export default function Manager() {
               Record a visit
             </Link>
           )}
-          <div className="mt-3 sm:mt-4 grid grid-cols-2 sm:inline-grid rounded-full bg-paper/10 p-1 w-full sm:w-auto">
-            {VIEWS.map((v) => (
+          <div className={`mt-3 sm:mt-4 grid ${views.length > 2 ? 'grid-cols-3' : 'grid-cols-2'} sm:inline-grid sm:grid-flow-col rounded-full bg-paper/10 p-1 w-full sm:w-auto`}>
+            {views.map((v) => (
               <button
                 key={v.key}
                 type="button"
@@ -137,6 +149,7 @@ export default function Manager() {
                 className={`px-5 h-9 rounded-full text-sm font-semibold ${view === v.key ? 'bg-paper text-ink shadow-sm' : 'tab-hover text-paper/70 hover:text-paper'}`}
               >
                 {v.label}
+                {v.key === 'requests' && pendingCount > 0 && <span className="ml-1.5 inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full gold-gradient text-ink text-[11px] font-bold">{pendingCount}</span>}
               </button>
             ))}
           </div>
@@ -160,6 +173,19 @@ export default function Manager() {
           <Suspense fallback={<div className="skeleton h-40 rounded-2xl" />}>
             <Analysis role={user.role} scopeLabel={data?.scopeLabel} exportMeta={() => ({ division: data?.division || (user.role === 'asm' ? user.agent : '') })} />
           </Suspense>
+        </div>
+      )}
+
+      {view === 'requests' && (
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-5 anim-rise">
+          <p className="text-sm text-ink/60 mb-4">New outlets your people asked to add. Approve with the right Outlet ID, or decline with a reason. They get a notice either way.</p>
+          {!data ? (
+            <div className="skeleton h-32 rounded-2xl" />
+          ) : (
+            <Suspense fallback={<div className="skeleton h-32 rounded-2xl" />}>
+              <RequestsTab data={{ outlets: data.outletRequests || [] }} reload={load} say={say} />
+            </Suspense>
+          )}
         </div>
       )}
 
@@ -220,6 +246,7 @@ export default function Manager() {
         )}
       </div>
       {openVisit && <VisitDetail id={openVisit} onClose={() => setOpenVisit(null)} canVoid={user.role === 'admin'} onChanged={load} />}
+      <Toast toast={toast} />
     </main>
   )
 }

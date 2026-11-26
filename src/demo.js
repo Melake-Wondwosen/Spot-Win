@@ -134,7 +134,7 @@ function notesFor(role) {
   const d = D()
   const notes = d.notices.filter((n) => n.target === 'all' || n.target === role).map((n) => ({ ...n, from: n.fromName }))
   if (role !== 'sales') d.flags.filter((f) => f.status !== 'resolved').forEach((f) => notes.push({ id: 'flag:' + f.id, date: f.date, kind: 'flag', title: f.userName + ': ' + f.type.replace(/-/g, ' '), body: f.detail }))
-  if (role === 'admin') d.outletsTab.filter((o) => o.status === 'pending').forEach((o) => notes.push({ id: 'req:' + o.key, date: o.createdAt, kind: 'request', title: 'New outlet request', body: o.outletName + ' from ' + o.requestedByName }))
+  if (role === 'admin' || role === 'rtm') d.outletsTab.filter((o) => o.status === 'pending').forEach((o) => notes.push({ id: 'req:' + o.key, date: o.createdAt, kind: 'request', title: 'New outlet request', body: o.outletName + ' from ' + o.requestedByName }))
   return notes.sort((a, b) => (a.date < b.date ? 1 : -1))
 }
 
@@ -241,6 +241,7 @@ export async function demoCall(action, p) {
         serverTime: new Date().toISOString(), division: scoped ? 'North Addis' : '', scopeLabel: asm ? 'ASM · ' + me.agent : scoped ? (me.role === 'rtm' ? 'RTM' : 'Manager') + ' · North Addis' : '', users, visits,
         presence: d.presence.filter((x) => ids.has(x.userId)), track: d.track.filter((x) => ids.has(x.userId) && x.date >= (p.trackFrom || '')),
         flags: d.flags.filter((x) => ids.has(x.userId)), notes: notesFor(me?.role || 'manager'),
+        outletRequests: me?.role === 'rtm' ? d.outletsTab.filter((o) => o.requestedBy) : null,
       }
     }
     case 'visitDetail': {
@@ -275,7 +276,7 @@ export async function demoCall(action, p) {
     case 'saveOutlet': {
       const o = p.outlet
       const i = d.outletsTab.findIndex((x) => x.key === o.key)
-      if (i > -1) d.outletsTab[i] = { ...d.outletsTab[i], ...o, updatedAt: new Date().toISOString() }
+      if (i > -1) d.outletsTab[i] = { ...d.outletsTab[i], ...o, updatedAt: new Date().toISOString(), reviewedBy: d.outletsTab[i].status === 'pending' ? me?.name + (me?.role === 'rtm' ? ' (RTM)' : '') : d.outletsTab[i].reviewedBy }
       else d.outletsTab.push({ ...o, key: 'OUT-' + Date.now(), createdAt: new Date().toISOString() })
       return {}
     }

@@ -497,7 +497,7 @@ export function RequestsTab({ data, reload, say }) {
             {handled.map((o) => (
               <li key={o.key} className="row-hover px-4 py-2.5 flex items-center gap-3 text-sm">
                 <span className="flex-1 min-w-0 truncate">
-                  <b>{o.outletName}</b> <span className="text-ink/50">· {o.requestedByName}</span>
+                  <b>{o.outletName}</b> <span className="text-ink/50">· {o.requestedByName}{o.reviewedBy ? ` · by ${o.reviewedBy}` : ''}</span>
                 </span>
                 <Chip tone={o.status === 'active' ? 'green' : 'red'}>{o.status === 'active' ? 'Approved' : 'Declined'}</Chip>
               </li>
