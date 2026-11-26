@@ -22,9 +22,12 @@ function doPost(e) {
   try {
     body = JSON.parse(e.postData.contents);
   } catch (err) {
-    return json_({ ok: false, error: 'Bad request.' });
+    return json_({ ok: false, error: 'Bad request.', now: Date.now() });
   }
-  return json_(route_(body));
+  var out = route_(body);
+  // The server clock goes with every answer; the app keeps its time from it
+  out.now = Date.now();
+  return json_(out);
 }
 
 // Opening the /exec URL in a browser shows this: a quick check that the deployment is live.
@@ -1281,6 +1284,29 @@ function fixVisitClocks() {
   }
   Logger.log(fixed.length + ' visits fixed' + (fixed.length ? ':\n' + fixed.join('\n') : ''));
   return fixed.length;
+}
+
+// One-off: removes the "Phone clock wrong" alerts raised on 25 and 26 Nov. Those
+// came from the app's own clock reading (an old cached time from the web host),
+// not from the phones, so they are wrong. The visits' times were corrected and
+// stay as they are. Run once from the editor (choose clearClockFlags, then Run).
+function clearClockFlags() {
+  var removed = 0;
+  withLock_(function () {
+    var sh = sheet_('Flags');
+    var data = sh.getDataRange().getValues();
+    var c = data[0].map(String).indexOf('type');
+    var keep = [data[0]];
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][c]) === 'wrong-clock') removed++;
+      else keep.push(data[i]);
+    }
+    if (!removed) return;
+    sh.getRange(1, 1, data.length, data[0].length).clearContent();
+    sh.getRange(1, 1, keep.length, data[0].length).setValues(keep);
+  });
+  Logger.log(removed + ' clock alerts removed');
+  return removed;
 }
 
 function isoOr_(v, fallback) {

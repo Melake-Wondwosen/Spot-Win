@@ -1,6 +1,7 @@
 import { VIEWERS } from './roles'
 import { API_URL, DEMO, LOGIN_TIMEOUT_MS, PHOTO_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from './config'
 import { clearUser, getUser, setSettings } from './storage'
+import { noteServerTime } from './clock'
 
 // Apps Script answers with an HTML page when the deployment is misconfigured.
 // Turn that into something the user (or whoever they call) can act on.
@@ -26,6 +27,7 @@ export async function post(action, payload = {}, timeoutMs = REQUEST_TIMEOUT_MS)
   if (API_URL.startsWith('PASTE')) throw new Error('The server address is not set. Put the Apps Script URL in src/config.js.')
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const t0 = Date.now()
   let res
   try {
     // text/plain keeps this a CORS "simple request": no OPTIONS preflight,
@@ -50,6 +52,8 @@ export async function post(action, payload = {}, timeoutMs = REQUEST_TIMEOUT_MS)
   } catch {
     throw new Error(text.trim().startsWith('<') ? explainHtml(text) : 'The server sent a reply the app could not read.')
   }
+  // Every answer carries the server clock; it keeps the app on online time
+  if (data.now) noteServerTime(Number(data.now), t0, Date.now())
   if (data.ok !== true) throw new Error(data.error || data.message || 'The server rejected the request.')
   return data.data ?? {}
 }
