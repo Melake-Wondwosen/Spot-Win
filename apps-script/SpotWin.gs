@@ -1192,7 +1192,7 @@ function addVisit_(b) {
 
   // Phone clocks can be wrong (days ahead, or a wrong time zone). The phone says
   // what its clock read when it sent the visit; the difference from the server
-  // clock is the error, and every phone time below is moved by it.
+  // clock is the error, and every phone time below is moved by it, silently.
   var skew = clockSkew_(v);
   var fix = function (iso) { return shiftIso_(iso, skew); };
 
@@ -1215,7 +1215,6 @@ function addVisit_(b) {
   }
 
   var alerts = [];
-  if (skew) alerts.push(['wrong-clock', 'Phone clock was ' + skewText_(skew) + '. Visit time corrected.']);
   var limit = unit === 'Crate' ? settings.crateLimit : settings.birrLimit;
   if (amount > limit) alerts.push(['high-amount', amount.toLocaleString() + ' ' + (unit === 'Crate' ? 'crates' : 'Birr') + ' is above the ' + limit.toLocaleString() + ' limit']);
   if (row.distanceM !== '' && row.distanceM > settings.distanceLimitM) alerts.push(['away-from-outlet', outlet.outletName + ' (' + outletId + ') ' + row.distanceM + ' m away']);
