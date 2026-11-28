@@ -1030,11 +1030,101 @@ function cleanVisitId_(v) {
 }
 
 // Drive subfolder per month (Addis time): 2026-10, 2026-11...
-function monthFolder_() {
+/* ---------- photo storage through the Drive API ----------
+   DriveApp has its own small daily allowance ("Limit Exceeded: Drive"), which a
+   full day of receipt photos used up. Photos now go through the Drive web API
+   (UrlFetchApp), which has a far larger allowance. DriveApp stays as a fallback. */
+
+var DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
+var DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id';
+
+function driveFetch_(url, opt) {
+  opt = opt || {};
+  var params = {
+    method: opt.method || 'get', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
+  };
+  if (opt.payload != null) params.payload = opt.payload;
+  if (opt.contentType) params.contentType = opt.contentType;
+  var wait = 500;
+  for (var i = 0; i < 4; i++) {
+    var res = UrlFetchApp.fetch(url, params);
+    var code = res.getResponseCode();
+    if (code < 300) return res;
+    // Busy or rate limited: wait and try again
+    if ((code === 403 || code === 429 || code >= 500) && i < 3) { Utilities.sleep(wait); wait *= 2; continue; }
+    throw new Error('Drive ' + code + ': ' + res.getContentText().slice(0, 200));
+  }
+}
+
+// The month's photo folder ID, kept in script properties after the first lookup
+function monthFolderId_() {
   var name = Utilities.formatDate(new Date(), 'Africa/Addis_Ababa', 'yyyy-MM');
-  var root = photoFolder_();
-  var it = root.getFoldersByName(name);
-  return it.hasNext() ? it.next() : root.createFolder(name);
+  var key = 'PHOTO_MONTH_' + name;
+  var props = props_();
+  var id = props.getProperty(key);
+  if (id) return id;
+  var root = props.getProperty('PHOTO_FOLDER_ID');
+  if (!root) fail_('PHOTO_FOLDER_ID is not set. Run paymentSetup once in the Apps Script editor.');
+  var q = "'" + root + "' in parents and name = '" + name + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+  var found = JSON.parse(driveFetch_(DRIVE_API + '?fields=files(id)&q=' + encodeURIComponent(q)).getContentText()).files || [];
+  if (found.length) id = found[0].id;
+  else {
+    id = JSON.parse(driveFetch_(DRIVE_API + '?fields=id', {
+      method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ name: name, mimeType: 'application/vnd.google-apps.folder', parents: [root] })
+    }).getContentText()).id;
+  }
+  props.setProperty(key, id);
+  return id;
+}
+
+// Saves a JPEG and returns its file ID
+function savePhotoFile_(name, bytes) {
+  try {
+    var boundary = 'spotwin' + Utilities.getUuid().replace(/-/g, '');
+    var meta = JSON.stringify({ name: name, parents: [monthFolderId_()], mimeType: 'image/jpeg' });
+    var head = Utilities.newBlob('--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
+      '\r\n--' + boundary + '\r\nContent-Type: image/jpeg\r\n\r\n').getBytes();
+    var tail = Utilities.newBlob('\r\n--' + boundary + '--').getBytes();
+    var res = driveFetch_(DRIVE_UPLOAD, { method: 'post', contentType: 'multipart/related; boundary=' + boundary, payload: head.concat(bytes, tail) });
+    return JSON.parse(res.getContentText()).id;
+  } catch (err) {
+    console.warn('Drive API upload failed, trying DriveApp: ' + err);
+    try {
+      var month = Utilities.formatDate(new Date(), 'Africa/Addis_Ababa', 'yyyy-MM');
+      var root = photoFolder_();
+      var it = root.getFoldersByName(month);
+      return (it.hasNext() ? it.next() : root.createFolder(month)).createFile(Utilities.newBlob(bytes, 'image/jpeg', name)).getId();
+    } catch (err2) {
+      console.error('DriveApp upload failed too: ' + err2);
+      fail_('Photo storage is busy right now. The phone will send the photo again by itself.');
+    }
+  }
+}
+
+function readPhotoFile_(fileId) {
+  try {
+    return driveFetch_(DRIVE_API + '/' + encodeURIComponent(fileId) + '?alt=media').getContent();
+  } catch (err) {
+    return DriveApp.getFileById(fileId).getBlob().getBytes();
+  }
+}
+
+function trashPhotoFile_(fileId) {
+  try {
+    driveFetch_(DRIVE_API + '/' + encodeURIComponent(fileId), { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }) });
+  } catch (err) {
+    console.warn('Could not trash ' + fileId + ': ' + err);
+  }
+}
+
+// Run once from the editor after pasting this version: it asks Google for the
+// new permission (connect to an external service) and checks a photo can be saved.
+function testPhotoStorage() {
+  var id = savePhotoFile_('spotwin-test.jpg', Utilities.newBlob('test').getBytes());
+  trashPhotoFile_(id);
+  Logger.log('Photo storage works. Test file ' + id + ' saved and removed.');
 }
 
 function photoRow_(id) {
@@ -1066,10 +1156,10 @@ function uploadPhoto_(b) {
   var bytes = Utilities.base64Decode(String(b.data || ''));
   if (!bytes.length) fail_('The photo is empty.');
   if (bytes.length > MAX_PHOTO_BYTES) fail_('The photo is too big.');
-  var file = monthFolder_().createFile(Utilities.newBlob(bytes, 'image/jpeg', photoId + '.jpg'));
+  var fileId = savePhotoFile_(photoId + '.jpg', bytes);
   var thumb = String(b.thumb || '');
   var row = {
-    id: photoId, visitId: visitId, kind: kind, fileId: file.getId(), url: 'https://drive.google.com/file/d/' + file.getId() + '/view',
+    id: photoId, visitId: visitId, kind: kind, fileId: fileId, url: 'https://drive.google.com/file/d/' + fileId + '/view',
     hash: String(b.hash || '').slice(0, 80), source: kind === 'engagement' ? 'camera' : b.source === 'gallery' ? 'gallery' : 'camera',
     takenAt: String(b.takenAt || ''), lat: num_(b.lat), lng: num_(b.lng), sizeKb: Math.round(bytes.length / 1024),
     uploadedAt: now_(), userId: user.id, thumb: thumb.length <= MAX_THUMB_CHARS ? thumb : ''
@@ -1082,7 +1172,7 @@ function uploadPhoto_(b) {
     appendByHeader_(sheet_('Photos'), row);
   });
   if (kept) {
-    file.setTrashed(true);
+    trashPhotoFile_(fileId);
     return { photoId: photoId, url: String(kept.url), duplicate: true };
   }
 
@@ -1145,8 +1235,7 @@ function getPhoto_(b) {
   var p = photoRow_(String(b.id || ''));
   if (!p) fail_('Photo not found.');
   if (!allowed(String(p.visitId))) fail_('This photo is outside your area.');
-  var blob = DriveApp.getFileById(String(p.fileId)).getBlob();
-  return { data: Utilities.base64Encode(blob.getBytes()), mime: blob.getContentType() || 'image/jpeg' };
+  return { data: Utilities.base64Encode(readPhotoFile_(String(p.fileId))), mime: 'image/jpeg' };
 }
 
 /* ================= visits ================= */

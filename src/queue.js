@@ -10,6 +10,13 @@ import { clockIso } from './clock'
 // send twice, so a lost reply never makes a duplicate.
 const subs = new Set()
 let state = { busy: false, pending: 0, why: '' }
+
+// Google's own quota messages arrive in the account's language (Amharic here)
+// and mean nothing to a sales person; the upload simply waits and retries.
+function plainWhy(msg) {
+  if (/limit exceeded|ገደብ|quota|rate limit|storage is busy/i.test(msg || '')) return 'Photo storage is busy. Your visit is saved on the phone and will upload by itself.'
+  return msg
+}
 const emit = () => subs.forEach((fn) => fn(state))
 
 export function onQueue(fn) {
@@ -91,7 +98,7 @@ export function flushQueue() {
         await sendOne(next)
         sent++
       } catch (err) {
-        why = err.message
+        why = plainWhy(err.message)
         // No connection: the rest will fail the same way, so stop here
         if (/no connection|too long/i.test(why)) break
       }
@@ -109,3 +116,12 @@ export function flushQueue() {
 
 // Retry when the phone comes back online
 if (typeof window !== 'undefined') window.addEventListener('online', () => flushQueue())
+
+// And every 2 minutes while something is waiting, so a busy server or a weak
+// signal doesn't need anyone to tap Sync
+if (typeof window !== 'undefined') {
+  setInterval(async () => {
+    if (!navigator.onLine || flushing) return
+    if ((await getQueue()).length) flushQueue()
+  }, 2 * 60 * 1000)
+}
